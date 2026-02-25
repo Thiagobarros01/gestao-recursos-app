@@ -1,6 +1,9 @@
 <section class="page-head">
     <h1>Colaboradores de TI</h1>
     <p>Base de usuarios internos para vincular ativos e contratos.</p>
+    <?php if ($departmentScope !== null && $departmentScope !== '__none__'): ?>
+        <p class="muted">Escopo atual: departamento <?= htmlspecialchars($departmentScope) ?></p>
+    <?php endif; ?>
 </section>
 
 <section class="card split">
@@ -24,7 +27,21 @@
             <?php endif; ?>
             <input type="text" name="name" placeholder="Nome" value="<?= htmlspecialchars((string) ($editingStaff['name'] ?? '')) ?>" required>
             <input type="email" name="email" placeholder="Email" value="<?= htmlspecialchars((string) ($editingStaff['email'] ?? '')) ?>">
-            <input type="text" name="department" placeholder="Departamento" value="<?= htmlspecialchars((string) ($editingStaff['department'] ?? '')) ?>">
+            <?php if ($departmentScope === null): ?>
+                <select name="department" required>
+                    <option value="">Selecione o departamento</option>
+                    <?php foreach ($departments as $department): ?>
+                        <option
+                            value="<?= htmlspecialchars((string) $department['name']) ?>"
+                            <?= (string) ($editingStaff['department'] ?? '') === (string) $department['name'] ? 'selected' : '' ?>
+                        >
+                            <?= htmlspecialchars((string) $department['name']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            <?php else: ?>
+                <input type="text" name="department" value="<?= htmlspecialchars($departmentScope === '__none__' ? '' : $departmentScope) ?>" readonly>
+            <?php endif; ?>
             <div class="actions-inline">
                 <button type="submit"><?= $editingStaff ? 'Atualizar colaborador' : 'Salvar colaborador' ?></button>
                 <?php if ($editingStaff): ?>

@@ -6,12 +6,15 @@ use App\Controllers\AreaController;
 use App\Controllers\AssetController;
 use App\Controllers\AuthController;
 use App\Controllers\DashboardController;
+use App\Controllers\HomeRequestController;
 use App\Controllers\StaffController;
 use App\Controllers\TISettingsController;
+use App\Core\AccessControl;
 use App\Core\Auth;
 use App\Core\Database;
 use App\Core\View;
 use App\Repositories\AssetRepository;
+use App\Repositories\HomeRequestRepository;
 use App\Repositories\LookupRepository;
 use App\Repositories\StaffRepository;
 use App\Repositories\UserRepository;
@@ -40,13 +43,16 @@ $userRepo = new UserRepository($pdo);
 $staffRepo = new StaffRepository($pdo);
 $lookupRepo = new LookupRepository($pdo);
 $assetRepo = new AssetRepository($pdo);
+$homeRequestRepo = new HomeRequestRepository($pdo);
+$homeRequestRepo->autoMarkOverdueAsReturned();
 
 $authController = new AuthController($userRepo);
 $areaController = new AreaController();
 $dashboardController = new DashboardController($assetRepo, $staffRepo, $lookupRepo);
-$staffController = new StaffController($staffRepo);
+$staffController = new StaffController($staffRepo, $lookupRepo);
 $assetController = new AssetController($assetRepo, $staffRepo, $lookupRepo);
-$tiSettingsController = new TISettingsController($lookupRepo);
+$tiSettingsController = new TISettingsController($lookupRepo, $userRepo);
+$homeRequestController = new HomeRequestController($homeRequestRepo, $assetRepo, $staffRepo, $lookupRepo);
 
 $route = $_GET['r'] ?? 'areas';
 $isGuestRoute = in_array($route, ['login', 'login.submit'], true);
@@ -57,6 +63,12 @@ if (!$isGuestRoute && !Auth::check()) {
 
 if ($isGuestRoute && Auth::check()) {
     View::redirect('areas');
+}
+
+if (!$isGuestRoute && Auth::check() && !AccessControl::canAccessRoute($route, Auth::user())) {
+    http_response_code(403);
+    echo 'Acesso negado para esta rota';
+    exit;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -81,6 +93,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             break;
         case 'ti.assets.delete':
             $assetController->delete($_POST);
+            break;
+        case 'ti.assets.transfer':
+            $assetController->transfer($_POST);
+            break;
+        case 'ti.home-requests.store':
+            $homeRequestController->store($_POST);
+            break;
+        case 'ti.home-requests.approve':
+            $homeRequestController->approve($_POST);
+            break;
+        case 'ti.home-requests.reject':
+            $homeRequestController->reject($_POST);
+            break;
+        case 'ti.home-requests.return':
+            $homeRequestController->markReturned($_POST);
             break;
         case 'ti.settings.categories.store':
             $tiSettingsController->storeCategory($_POST);
@@ -108,6 +135,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             break;
         case 'ti.settings.statuses.delete':
             $tiSettingsController->deleteStatus($_POST);
+            break;
+        case 'ti.settings.departments.store':
+            $tiSettingsController->storeDepartment($_POST);
+            break;
+        case 'ti.settings.departments.update':
+            $tiSettingsController->updateDepartment($_POST);
+            break;
+        case 'ti.settings.departments.delete':
+            $tiSettingsController->deleteDepartment($_POST);
+            break;
+        case 'ti.settings.users.store':
+            $tiSettingsController->storeUser($_POST);
+            break;
+        case 'ti.settings.users.update':
+            $tiSettingsController->updateUser($_POST);
             break;
         default:
             http_response_code(404);
@@ -137,6 +179,9 @@ switch ($route) {
         break;
     case 'ti.settings':
         $tiSettingsController->index();
+        break;
+    case 'ti.home-requests':
+        $homeRequestController->index();
         break;
 
     // Legacy routes

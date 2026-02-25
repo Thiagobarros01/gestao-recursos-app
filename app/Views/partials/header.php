@@ -1,5 +1,6 @@
 <?php
 
+use App\Core\AccessControl;
 use App\Core\Auth;
 
 $title = $title ?? 'GestAll';
@@ -34,10 +35,21 @@ $hideMenu = $hideMenu ?? false;
 
             <div class="nav-section">
                 <p class="section-title">Gerenciamento da TI</p>
-                <a class="nav-link <?= $currentRoute === 'ti.dashboard' ? 'active' : '' ?>" href="index.php?r=ti.dashboard">Dashboard TI</a>
-                <a class="nav-link <?= $currentRoute === 'ti.assets' ? 'active' : '' ?>" href="index.php?r=ti.assets">Ativos e contratos</a>
-                <a class="nav-link <?= $currentRoute === 'ti.staff' ? 'active' : '' ?>" href="index.php?r=ti.staff">Colaboradores</a>
-                <a class="nav-link <?= $currentRoute === 'ti.settings' ? 'active' : '' ?>" href="index.php?r=ti.settings">Configuracoes TI</a>
+                <?php if (AccessControl::canAccessRoute('ti.dashboard', $user)): ?>
+                    <a class="nav-link <?= $currentRoute === 'ti.dashboard' ? 'active' : '' ?>" href="index.php?r=ti.dashboard">Dashboard TI</a>
+                <?php endif; ?>
+                <?php if (AccessControl::canAccessRoute('ti.assets', $user)): ?>
+                    <a class="nav-link <?= $currentRoute === 'ti.assets' ? 'active' : '' ?>" href="index.php?r=ti.assets">Ativos e contratos</a>
+                <?php endif; ?>
+                <?php if (AccessControl::canAccessRoute('ti.home-requests', $user)): ?>
+                    <a class="nav-link <?= $currentRoute === 'ti.home-requests' ? 'active' : '' ?>" href="index.php?r=ti.home-requests">Pedido casa</a>
+                <?php endif; ?>
+                <?php if (AccessControl::canAccessRoute('ti.staff', $user)): ?>
+                    <a class="nav-link <?= $currentRoute === 'ti.staff' ? 'active' : '' ?>" href="index.php?r=ti.staff">Colaboradores</a>
+                <?php endif; ?>
+                <?php if (AccessControl::canAccessRoute('ti.settings', $user)): ?>
+                    <a class="nav-link <?= $currentRoute === 'ti.settings' ? 'active' : '' ?>" href="index.php?r=ti.settings">Configuracoes TI</a>
+                <?php endif; ?>
             </div>
 
             <div class="nav-section muted">
@@ -49,6 +61,7 @@ $hideMenu = $hideMenu ?? false;
                 <div class="user-box">
                     <p class="user-name"><?= htmlspecialchars($user['name']) ?></p>
                     <p class="user-login">@<?= htmlspecialchars($user['username']) ?></p>
+                    <p class="user-login"><?= htmlspecialchars((string) ($user['role'] ?? '')) ?><?= !empty($user['department_name']) ? ' - ' . htmlspecialchars((string) $user['department_name']) : '' ?></p>
                     <a class="logout-link" href="index.php?r=logout">Sair</a>
                 </div>
             <?php endif; ?>

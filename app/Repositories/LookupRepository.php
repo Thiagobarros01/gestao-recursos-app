@@ -27,6 +27,11 @@ final class LookupRepository
         return $this->pdo->query('SELECT id, name FROM asset_statuses ORDER BY sort_order ASC, name ASC')->fetchAll();
     }
 
+    public function departments(): array
+    {
+        return $this->pdo->query('SELECT id, name FROM departments ORDER BY name ASC')->fetchAll();
+    }
+
     public function createCategory(string $name): bool
     {
         $stmt = $this->pdo->prepare('INSERT INTO equipment_categories (name) VALUES (:name)');
@@ -45,85 +50,115 @@ final class LookupRepository
         return $stmt->execute([':name' => $name]);
     }
 
+    public function createDepartment(string $name): bool
+    {
+        $stmt = $this->pdo->prepare('INSERT INTO departments (name) VALUES (:name)');
+        return $stmt->execute([':name' => $name]);
+    }
+
     public function findCategoryById(int $id): ?array
     {
-        $stmt = $this->pdo->prepare('SELECT id, name FROM equipment_categories WHERE id = :id LIMIT 1');
-        $stmt->execute([':id' => $id]);
-        $row = $stmt->fetch();
-        return $row ?: null;
+        return $this->findSimpleById('equipment_categories', $id);
     }
 
     public function findContractTypeById(int $id): ?array
     {
-        $stmt = $this->pdo->prepare('SELECT id, name FROM contract_types WHERE id = :id LIMIT 1');
-        $stmt->execute([':id' => $id]);
-        $row = $stmt->fetch();
-        return $row ?: null;
+        return $this->findSimpleById('contract_types', $id);
     }
 
     public function findStatusById(int $id): ?array
     {
-        $stmt = $this->pdo->prepare('SELECT id, name FROM asset_statuses WHERE id = :id LIMIT 1');
+        return $this->findSimpleById('asset_statuses', $id);
+    }
+
+    public function findDepartmentById(int $id): ?array
+    {
+        return $this->findSimpleById('departments', $id);
+    }
+
+    public function updateCategory(int $id, string $name): bool
+    {
+        return $this->updateSimpleName('equipment_categories', $id, $name);
+    }
+
+    public function updateContractType(int $id, string $name): bool
+    {
+        return $this->updateSimpleName('contract_types', $id, $name);
+    }
+
+    public function updateStatus(int $id, string $name): bool
+    {
+        return $this->updateSimpleName('asset_statuses', $id, $name);
+    }
+
+    public function updateDepartment(int $id, string $name): bool
+    {
+        return $this->updateSimpleName('departments', $id, $name);
+    }
+
+    public function deleteCategory(int $id): bool
+    {
+        return $this->deleteSimpleById('equipment_categories', $id);
+    }
+
+    public function deleteContractType(int $id): bool
+    {
+        return $this->deleteSimpleById('contract_types', $id);
+    }
+
+    public function deleteStatus(int $id): bool
+    {
+        return $this->deleteSimpleById('asset_statuses', $id);
+    }
+
+    public function deleteDepartment(int $id): bool
+    {
+        return $this->deleteSimpleById('departments', $id);
+    }
+
+    public function categoryNameById(int $id): ?string
+    {
+        return $this->simpleNameById('equipment_categories', $id);
+    }
+
+    public function statusNameById(int $id): ?string
+    {
+        return $this->simpleNameById('asset_statuses', $id);
+    }
+
+    public function contractTypeNameById(int $id): ?string
+    {
+        return $this->simpleNameById('contract_types', $id);
+    }
+
+    public function departmentNameById(int $id): ?string
+    {
+        return $this->simpleNameById('departments', $id);
+    }
+
+    private function findSimpleById(string $table, int $id): ?array
+    {
+        $stmt = $this->pdo->prepare(sprintf('SELECT id, name FROM %s WHERE id = :id LIMIT 1', $table));
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch();
         return $row ?: null;
     }
 
-    public function updateCategory(int $id, string $name): bool
+    private function updateSimpleName(string $table, int $id, string $name): bool
     {
-        $stmt = $this->pdo->prepare('UPDATE equipment_categories SET name = :name WHERE id = :id');
+        $stmt = $this->pdo->prepare(sprintf('UPDATE %s SET name = :name WHERE id = :id', $table));
         return $stmt->execute([':id' => $id, ':name' => $name]);
     }
 
-    public function updateContractType(int $id, string $name): bool
+    private function deleteSimpleById(string $table, int $id): bool
     {
-        $stmt = $this->pdo->prepare('UPDATE contract_types SET name = :name WHERE id = :id');
-        return $stmt->execute([':id' => $id, ':name' => $name]);
-    }
-
-    public function updateStatus(int $id, string $name): bool
-    {
-        $stmt = $this->pdo->prepare('UPDATE asset_statuses SET name = :name WHERE id = :id');
-        return $stmt->execute([':id' => $id, ':name' => $name]);
-    }
-
-    public function deleteCategory(int $id): bool
-    {
-        $stmt = $this->pdo->prepare('DELETE FROM equipment_categories WHERE id = :id');
+        $stmt = $this->pdo->prepare(sprintf('DELETE FROM %s WHERE id = :id', $table));
         return $stmt->execute([':id' => $id]);
     }
 
-    public function deleteContractType(int $id): bool
+    private function simpleNameById(string $table, int $id): ?string
     {
-        $stmt = $this->pdo->prepare('DELETE FROM contract_types WHERE id = :id');
-        return $stmt->execute([':id' => $id]);
-    }
-
-    public function deleteStatus(int $id): bool
-    {
-        $stmt = $this->pdo->prepare('DELETE FROM asset_statuses WHERE id = :id');
-        return $stmt->execute([':id' => $id]);
-    }
-
-    public function categoryNameById(int $id): ?string
-    {
-        $stmt = $this->pdo->prepare('SELECT name FROM equipment_categories WHERE id = :id LIMIT 1');
-        $stmt->execute([':id' => $id]);
-        $value = $stmt->fetchColumn();
-        return $value !== false ? (string) $value : null;
-    }
-
-    public function statusNameById(int $id): ?string
-    {
-        $stmt = $this->pdo->prepare('SELECT name FROM asset_statuses WHERE id = :id LIMIT 1');
-        $stmt->execute([':id' => $id]);
-        $value = $stmt->fetchColumn();
-        return $value !== false ? (string) $value : null;
-    }
-
-    public function contractTypeNameById(int $id): ?string
-    {
-        $stmt = $this->pdo->prepare('SELECT name FROM contract_types WHERE id = :id LIMIT 1');
+        $stmt = $this->pdo->prepare(sprintf('SELECT name FROM %s WHERE id = :id LIMIT 1', $table));
         $stmt->execute([':id' => $id]);
         $value = $stmt->fetchColumn();
         return $value !== false ? (string) $value : null;

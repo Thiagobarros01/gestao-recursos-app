@@ -417,6 +417,16 @@ th {
     border-color: #a61f2f;
 }
 
+.btn-transfer {
+    background: #1662c4;
+    border-color: #1662c4;
+}
+
+.btn-transfer:hover {
+    background: #104e9f;
+    border-color: #104e9f;
+}
+
 .stack-list {
     list-style: none;
     padding-left: 0;
@@ -430,6 +440,70 @@ th {
     border-top: 1px solid var(--line);
     padding: 8px 0;
     margin: 0;
+}
+
+.timeline-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.timeline-item {
+    border-left: 3px solid #cfe0ee;
+    padding: 8px 0 8px 12px;
+    margin-bottom: 10px;
+    background: linear-gradient(90deg, #f8fbff 0%, #ffffff 45%);
+}
+
+.timeline-head {
+    margin: 0;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 13px;
+}
+
+.timeline-head span {
+    color: var(--muted);
+}
+
+.timeline-body {
+    margin: 6px 0 4px;
+}
+
+.timeline-meta {
+    margin: 0;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.permission-grid {
+    display: grid;
+    gap: 8px;
+}
+
+.permission-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.permission-item input {
+    width: auto;
+}
+
+.doc-preview {
+    white-space: pre-wrap;
+    background: #f6f9fc;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 12px;
+    max-height: 220px;
+    overflow: auto;
 }
 
 .muted {
