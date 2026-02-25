@@ -56,7 +56,7 @@ final class UserRepository
     public function all(): array
     {
         $rows = $this->pdo->query(
-            'SELECT u.id, u.name, u.username, u.role, u.department_id, u.staff_id, d.name AS department_name, s.name AS staff_name
+            'SELECT u.id, u.name, u.username, u.role, u.department_id, u.staff_id, u.is_seller, d.name AS department_name, s.name AS staff_name
              FROM users u
              LEFT JOIN departments d ON d.id = u.department_id
              LEFT JOIN staff s ON s.id = u.staff_id
@@ -77,14 +77,15 @@ final class UserRepository
         string $role,
         ?int $departmentId,
         ?int $staffId,
+        bool $isSeller,
         array $allowedRoutes
     ): bool {
         try {
             $this->pdo->beginTransaction();
 
             $stmt = $this->pdo->prepare(
-                'INSERT INTO users (name, username, password_hash, role, department_id, staff_id)
-                 VALUES (:name, :username, :password_hash, :role, :department_id, :staff_id)'
+                'INSERT INTO users (name, username, password_hash, role, department_id, staff_id, is_seller)
+                 VALUES (:name, :username, :password_hash, :role, :department_id, :staff_id, :is_seller)'
             );
             $ok = $stmt->execute([
                 ':name' => $name,
@@ -93,6 +94,7 @@ final class UserRepository
                 ':role' => $role,
                 ':department_id' => $departmentId,
                 ':staff_id' => $staffId,
+                ':is_seller' => $isSeller ? 1 : 0,
             ]);
             if (!$ok) {
                 $this->pdo->rollBack();
@@ -119,6 +121,7 @@ final class UserRepository
         string $role,
         ?int $departmentId,
         ?int $staffId,
+        bool $isSeller,
         array $allowedRoutes
     ): bool {
         try {
@@ -129,7 +132,8 @@ final class UserRepository
                         username = :username,
                         role = :role,
                         department_id = :department_id,
-                        staff_id = :staff_id';
+                        staff_id = :staff_id,
+                        is_seller = :is_seller';
             $params = [
                 ':id' => $id,
                 ':name' => $name,
@@ -137,6 +141,7 @@ final class UserRepository
                 ':role' => $role,
                 ':department_id' => $departmentId,
                 ':staff_id' => $staffId,
+                ':is_seller' => $isSeller ? 1 : 0,
             ];
 
             if ($passwordHash !== null) {

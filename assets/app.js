@@ -26,6 +26,60 @@
         });
     }
 
+    var moduleToggles = document.querySelectorAll('[data-module-toggle]');
+    moduleToggles.forEach(function (button) {
+        button.addEventListener('click', function () {
+            var moduleId = button.getAttribute('data-module-toggle');
+            if (!moduleId) {
+                return;
+            }
+            var body = document.querySelector('[data-module-body="' + moduleId + '"]');
+            if (!body) {
+                return;
+            }
+            var isCollapsed = body.classList.toggle('collapsed');
+            button.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+            var arrow = button.querySelector('.section-arrow');
+            if (arrow) {
+                arrow.textContent = isCollapsed ? '>' : 'v';
+            }
+            try {
+                localStorage.setItem('nav.module.' + moduleId, isCollapsed ? 'collapsed' : 'open');
+            } catch (e) {
+                // sem persistencia local
+            }
+        });
+
+        var moduleId = button.getAttribute('data-module-toggle');
+        if (!moduleId) {
+            return;
+        }
+        var body = document.querySelector('[data-module-body="' + moduleId + '"]');
+        if (!body) {
+            return;
+        }
+        try {
+            var savedState = localStorage.getItem('nav.module.' + moduleId);
+            if (savedState === 'collapsed') {
+                body.classList.add('collapsed');
+                button.setAttribute('aria-expanded', 'false');
+                var arrow = button.querySelector('.section-arrow');
+                if (arrow) {
+                    arrow.textContent = '>';
+                }
+            } else if (savedState === 'open') {
+                body.classList.remove('collapsed');
+                button.setAttribute('aria-expanded', 'true');
+                var openArrow = button.querySelector('.section-arrow');
+                if (openArrow) {
+                    openArrow.textContent = 'v';
+                }
+            }
+        } catch (e) {
+            // sem persistencia local
+        }
+    });
+
     var quickButtons = document.querySelectorAll('[data-toggle-target]');
     quickButtons.forEach(function (button) {
         button.addEventListener('click', function () {
@@ -43,6 +97,7 @@
 
     var kanbanBoard = document.querySelector('.kanban-board');
     if (kanbanBoard) {
+        var isReadOnlyBoard = kanbanBoard.getAttribute('data-readonly') === '1';
         var dragTaskId = null;
         var columns = kanbanBoard.querySelectorAll('.kanban-column');
         var cards = kanbanBoard.querySelectorAll('.kanban-card');
@@ -51,6 +106,10 @@
         var statusInput = document.getElementById('kanbanMoveStatus');
 
         cards.forEach(function (card) {
+            if (isReadOnlyBoard) {
+                card.setAttribute('draggable', 'false');
+                return;
+            }
             card.addEventListener('dragstart', function () {
                 dragTaskId = card.getAttribute('data-task-id');
                 card.classList.add('dragging');
@@ -61,6 +120,9 @@
         });
 
         columns.forEach(function (column) {
+            if (isReadOnlyBoard) {
+                return;
+            }
             column.addEventListener('dragover', function (event) {
                 event.preventDefault();
                 column.classList.add('drop-zone');

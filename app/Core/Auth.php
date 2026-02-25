@@ -36,6 +36,7 @@ final class Auth
             'department_name' => $user['department_name'] ?? '',
             'staff_id' => $user['staff_id'] ?? null,
             'staff_name' => $user['staff_name'] ?? '',
+            'is_seller' => (int) ($user['is_seller'] ?? 0) === 1,
             'allowed_routes' => $user['allowed_routes'] ?? [],
         ];
     }

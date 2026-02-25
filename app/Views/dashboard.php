@@ -31,6 +31,6 @@
     <article class="module-card">
         <h2>Configuracoes TI</h2>
         <p>Gerencie categorias, contratos e status usados pelos ativos.</p>
-        <a class="btn" href="index.php?r=ti.settings">Abrir configuracoes</a>
+        <a class="btn" href="index.php?r=settings">Abrir configuracoes</a>
     </article>
 </section>

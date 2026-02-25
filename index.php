@@ -5,20 +5,25 @@ declare(strict_types=1);
 use App\Controllers\AreaController;
 use App\Controllers\AssetController;
 use App\Controllers\AuthController;
+use App\Controllers\CommercialCrmController;
 use App\Controllers\CommercialKanbanController;
 use App\Controllers\ContractController;
 use App\Controllers\DashboardController;
 use App\Controllers\HomeRequestController;
+use App\Controllers\PurchasesController;
 use App\Controllers\StaffController;
 use App\Controllers\TISettingsController;
+use App\Controllers\TIOperatorRequestController;
 use App\Core\AccessControl;
 use App\Core\Auth;
 use App\Core\Database;
 use App\Core\View;
 use App\Repositories\AssetRepository;
+use App\Repositories\CommercialCrmRepository;
 use App\Repositories\CommercialKanbanRepository;
 use App\Repositories\HomeRequestRepository;
 use App\Repositories\LookupRepository;
+use App\Repositories\PurchaseRepository;
 use App\Repositories\StaffRepository;
 use App\Repositories\UserRepository;
 use App\Services\SchemaService;
@@ -48,6 +53,8 @@ $lookupRepo = new LookupRepository($pdo);
 $assetRepo = new AssetRepository($pdo);
 $homeRequestRepo = new HomeRequestRepository($pdo);
 $commercialKanbanRepo = new CommercialKanbanRepository($pdo);
+$commercialCrmRepo = new CommercialCrmRepository($pdo);
+$purchaseRepo = new PurchaseRepository($pdo);
 $homeRequestRepo->autoMarkOverdueAsReturned();
 
 $authController = new AuthController($userRepo);
@@ -57,8 +64,11 @@ $staffController = new StaffController($staffRepo, $lookupRepo);
 $assetController = new AssetController($assetRepo, $staffRepo, $lookupRepo);
 $contractController = new ContractController($assetRepo, $homeRequestRepo, $lookupRepo);
 $commercialKanbanController = new CommercialKanbanController($commercialKanbanRepo, $userRepo);
+$commercialCrmController = new CommercialCrmController($commercialCrmRepo, $userRepo);
 $tiSettingsController = new TISettingsController($lookupRepo, $userRepo, $staffRepo);
 $homeRequestController = new HomeRequestController($homeRequestRepo, $assetRepo, $staffRepo, $lookupRepo);
+$purchasesController = new PurchasesController($purchaseRepo);
+$tiOperatorRequestController = new TIOperatorRequestController($purchaseRepo);
 
 $route = $_GET['r'] ?? 'areas';
 $isGuestRoute = in_array($route, ['login', 'login.submit'], true);
@@ -115,6 +125,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         case 'commercial.kanban.board.update':
             $commercialKanbanController->updateBoard($_POST);
             break;
+        case 'commercial.kanban.board.archive':
+            $commercialKanbanController->archiveBoard($_POST);
+            break;
+        case 'commercial.kanban.board.unarchive':
+            $commercialKanbanController->unarchiveBoard($_POST);
+            break;
+        case 'commercial.kanban.board.delete':
+            $commercialKanbanController->deleteBoard($_POST);
+            break;
         case 'commercial.kanban.members.update':
             $commercialKanbanController->updateMembers($_POST);
             break;
@@ -130,6 +149,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         case 'commercial.kanban.task.delete':
             $commercialKanbanController->deleteTask($_POST);
             break;
+        case 'commercial.kanban.comment.store':
+            $commercialKanbanController->addComment($_POST);
+            break;
+        case 'commercial.kanban.comment.delete':
+            $commercialKanbanController->deleteComment($_POST);
+            break;
+        case 'commercial.crm.client.store':
+            $commercialCrmController->storeClient($_POST);
+            break;
+        case 'commercial.crm.sale.store':
+            $commercialCrmController->storeSale($_POST);
+            break;
+        case 'commercial.crm.settings.update':
+            $commercialCrmController->updateSettings($_POST);
+            break;
         case 'ti.home-requests.store':
             $homeRequestController->store($_POST);
             break;
@@ -142,50 +176,89 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         case 'ti.home-requests.return':
             $homeRequestController->markReturned($_POST);
             break;
+        case 'ti.operator-requests.approve':
+            $tiOperatorRequestController->approve($_POST);
+            break;
+        case 'ti.operator-requests.reject':
+            $tiOperatorRequestController->reject($_POST);
+            break;
         case 'ti.contracts.update':
             $contractController->update($_POST);
             break;
-        case 'ti.settings.categories.store':
+        case 'settings.categories.store':
             $tiSettingsController->storeCategory($_POST);
             break;
-        case 'ti.settings.categories.update':
+        case 'settings.categories.update':
             $tiSettingsController->updateCategory($_POST);
             break;
-        case 'ti.settings.categories.delete':
+        case 'settings.categories.delete':
             $tiSettingsController->deleteCategory($_POST);
             break;
-        case 'ti.settings.contract-types.store':
+        case 'settings.contract-types.store':
             $tiSettingsController->storeContractType($_POST);
             break;
-        case 'ti.settings.contract-types.update':
+        case 'settings.contract-types.update':
             $tiSettingsController->updateContractType($_POST);
             break;
-        case 'ti.settings.contract-types.delete':
+        case 'settings.contract-types.delete':
             $tiSettingsController->deleteContractType($_POST);
             break;
-        case 'ti.settings.statuses.store':
+        case 'settings.statuses.store':
             $tiSettingsController->storeStatus($_POST);
             break;
-        case 'ti.settings.statuses.update':
+        case 'settings.statuses.update':
             $tiSettingsController->updateStatus($_POST);
             break;
-        case 'ti.settings.statuses.delete':
+        case 'settings.statuses.delete':
             $tiSettingsController->deleteStatus($_POST);
             break;
-        case 'ti.settings.departments.store':
+        case 'settings.departments.store':
             $tiSettingsController->storeDepartment($_POST);
             break;
-        case 'ti.settings.departments.update':
+        case 'settings.departments.update':
             $tiSettingsController->updateDepartment($_POST);
             break;
-        case 'ti.settings.departments.delete':
+        case 'settings.departments.delete':
             $tiSettingsController->deleteDepartment($_POST);
             break;
-        case 'ti.settings.users.store':
+        case 'settings.users.store':
             $tiSettingsController->storeUser($_POST);
             break;
-        case 'ti.settings.users.update':
+        case 'settings.users.update':
             $tiSettingsController->updateUser($_POST);
+            break;
+        case 'purchases.products.store':
+            $purchasesController->storeProduct($_POST);
+            break;
+        case 'purchases.products.update-stock':
+            $purchasesController->updateProductStock($_POST);
+            break;
+        case 'purchases.shortages.accept':
+            $purchasesController->acceptShortage($_POST);
+            break;
+        case 'purchases.shortages.resolve':
+            $purchasesController->resolveShortage($_POST);
+            break;
+        case 'purchases.shortages.close':
+            $purchasesController->closeShortage($_POST);
+            break;
+        case 'purchases.shortages.resolve-all':
+            $purchasesController->resolveAllShortages($_POST);
+            break;
+        case 'purchases.shortages.close-all':
+            $purchasesController->closeAllShortages($_POST);
+            break;
+        case 'purchases.seller.shortage.store':
+            $purchasesController->storeShortage($_POST);
+            break;
+        case 'purchases.seller.ti-request.store':
+            $purchasesController->storeTiRequest($_POST);
+            break;
+        case 'commercial.seller.shortage.store':
+            $purchasesController->storeShortage($_POST);
+            break;
+        case 'commercial.seller.ti-request.store':
+            $purchasesController->storeTiRequest($_POST);
             break;
         default:
             http_response_code(404);
@@ -213,8 +286,11 @@ switch ($route) {
     case 'ti.assets':
         $assetController->index();
         break;
-    case 'ti.settings':
+    case 'settings':
         $tiSettingsController->index();
+        break;
+    case 'ti.settings':
+        View::redirect('settings');
         break;
     case 'ti.contracts':
         $contractController->index();
@@ -222,8 +298,23 @@ switch ($route) {
     case 'ti.home-requests':
         $homeRequestController->index();
         break;
+    case 'ti.operator-requests':
+        $tiOperatorRequestController->index();
+        break;
     case 'commercial.kanban':
         $commercialKanbanController->index();
+        break;
+    case 'commercial.crm':
+        $commercialCrmController->index();
+        break;
+    case 'purchases.manage':
+        $purchasesController->manage();
+        break;
+    case 'purchases.seller':
+        View::redirect('commercial.seller');
+        break;
+    case 'commercial.seller':
+        $purchasesController->seller();
         break;
 
     // Legacy routes

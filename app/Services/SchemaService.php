@@ -19,6 +19,7 @@ final class SchemaService
                 role TEXT NOT NULL DEFAULT \'admin\',
                 department_id INTEGER,
                 staff_id INTEGER,
+                is_seller INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )'
         );
@@ -155,6 +156,12 @@ final class SchemaService
                 name TEXT NOT NULL,
                 description TEXT,
                 owner_user_id INTEGER NOT NULL,
+                is_archived INTEGER NOT NULL DEFAULT 0,
+                archived_at TEXT,
+                stage_name_todo TEXT,
+                stage_name_doing TEXT,
+                stage_name_review TEXT,
+                stage_name_done TEXT,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT,
                 FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -178,6 +185,10 @@ final class SchemaService
                 board_id INTEGER NOT NULL,
                 title TEXT NOT NULL,
                 description TEXT,
+                customer_name TEXT,
+                company_name TEXT,
+                deal_value REAL,
+                tag_name TEXT,
                 status TEXT NOT NULL DEFAULT \'todo\',
                 priority TEXT NOT NULL DEFAULT \'media\',
                 assignee_user_id INTEGER,
@@ -188,6 +199,113 @@ final class SchemaService
                 FOREIGN KEY (board_id) REFERENCES commercial_boards(id) ON DELETE CASCADE,
                 FOREIGN KEY (assignee_user_id) REFERENCES users(id) ON DELETE SET NULL,
                 FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE CASCADE
+            )'
+        );
+
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS commercial_task_comments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                comment_text TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (task_id) REFERENCES commercial_tasks(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )'
+        );
+
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS crm_clients (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                owner_user_id INTEGER NOT NULL,
+                client_name TEXT NOT NULL,
+                company_name TEXT,
+                phone TEXT,
+                whatsapp TEXT,
+                email TEXT,
+                status TEXT NOT NULL DEFAULT \'ativo\',
+                notes TEXT,
+                last_purchase_date TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT,
+                FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE CASCADE
+            )'
+        );
+
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS crm_sales (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                client_id INTEGER NOT NULL,
+                seller_user_id INTEGER NOT NULL,
+                sale_date TEXT NOT NULL,
+                amount REAL NOT NULL DEFAULT 0,
+                notes TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (client_id) REFERENCES crm_clients(id) ON DELETE CASCADE,
+                FOREIGN KEY (seller_user_id) REFERENCES users(id) ON DELETE CASCADE
+            )'
+        );
+
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS crm_settings (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                followup_after_days INTEGER NOT NULL DEFAULT 30,
+                updated_by_user_id INTEGER,
+                updated_at TEXT,
+                FOREIGN KEY (updated_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+            )'
+        );
+
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS purchase_products (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                sku TEXT,
+                stock_qty INTEGER NOT NULL DEFAULT 0,
+                min_qty INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT
+            )'
+        );
+
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS purchase_shortage_alerts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_code TEXT,
+                product_name TEXT NOT NULL,
+                details TEXT,
+                priority TEXT NOT NULL DEFAULT \'alta\',
+                status TEXT NOT NULL DEFAULT \'pending\',
+                requested_by_user_id INTEGER NOT NULL,
+                accepted_by_user_id INTEGER,
+                accepted_at TEXT,
+                resolved_by_user_id INTEGER,
+                resolved_at TEXT,
+                closed_by_user_id INTEGER,
+                closed_at TEXT,
+                resolution_note TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT,
+                FOREIGN KEY (requested_by_user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (accepted_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+                FOREIGN KEY (resolved_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+                FOREIGN KEY (closed_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+            )'
+        );
+
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS operator_ti_requests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                requested_by_user_id INTEGER NOT NULL,
+                reason TEXT NOT NULL,
+                details TEXT,
+                status TEXT NOT NULL DEFAULT \'pending\',
+                reviewed_by_user_id INTEGER,
+                reviewed_at TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT,
+                FOREIGN KEY (requested_by_user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (reviewed_by_user_id) REFERENCES users(id) ON DELETE SET NULL
             )'
         );
 
@@ -210,6 +328,33 @@ final class SchemaService
         self::ensureUserColumn($pdo, 'role', 'TEXT NOT NULL DEFAULT \'admin\'');
         self::ensureUserColumn($pdo, 'department_id', 'INTEGER');
         self::ensureUserColumn($pdo, 'staff_id', 'INTEGER');
+        self::ensureUserColumn($pdo, 'is_seller', 'INTEGER NOT NULL DEFAULT 0');
+        self::ensureCommercialBoardColumn($pdo, 'is_archived', 'INTEGER NOT NULL DEFAULT 0');
+        self::ensureCommercialBoardColumn($pdo, 'archived_at', 'TEXT');
+        self::ensureCommercialBoardColumn($pdo, 'stage_name_todo', 'TEXT');
+        self::ensureCommercialBoardColumn($pdo, 'stage_name_doing', 'TEXT');
+        self::ensureCommercialBoardColumn($pdo, 'stage_name_review', 'TEXT');
+        self::ensureCommercialBoardColumn($pdo, 'stage_name_done', 'TEXT');
+        self::ensureCommercialTaskColumn($pdo, 'customer_name', 'TEXT');
+        self::ensureCommercialTaskColumn($pdo, 'company_name', 'TEXT');
+        self::ensureCommercialTaskColumn($pdo, 'deal_value', 'REAL');
+        self::ensureCommercialTaskColumn($pdo, 'tag_name', 'TEXT');
+        self::ensureCrmClientColumn($pdo, 'owner_user_id', 'INTEGER');
+        self::ensureCrmClientColumn($pdo, 'client_name', 'TEXT');
+        self::ensureCrmClientColumn($pdo, 'company_name', 'TEXT');
+        self::ensureCrmClientColumn($pdo, 'phone', 'TEXT');
+        self::ensureCrmClientColumn($pdo, 'whatsapp', 'TEXT');
+        self::ensureCrmClientColumn($pdo, 'email', 'TEXT');
+        self::ensureCrmClientColumn($pdo, 'status', 'TEXT NOT NULL DEFAULT \'ativo\'');
+        self::ensureCrmClientColumn($pdo, 'notes', 'TEXT');
+        self::ensureCrmClientColumn($pdo, 'last_purchase_date', 'TEXT');
+        self::ensureCrmClientColumn($pdo, 'updated_at', 'TEXT');
+        self::ensureShortageColumn($pdo, 'product_code', 'TEXT');
+        self::ensureShortageColumn($pdo, 'resolved_by_user_id', 'INTEGER');
+        self::ensureShortageColumn($pdo, 'resolved_at', 'TEXT');
+        self::ensureShortageColumn($pdo, 'closed_by_user_id', 'INTEGER');
+        self::ensureShortageColumn($pdo, 'closed_at', 'TEXT');
+        self::ensureShortageColumn($pdo, 'resolution_note', 'TEXT');
 
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_assets_type ON assets(type)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_assets_status ON assets(status)');
@@ -231,12 +376,31 @@ final class SchemaService
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_home_req_status ON home_equipment_requests(status)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_home_req_requester ON home_equipment_requests(requester_staff_id)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_com_board_owner ON commercial_boards(owner_user_id)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_com_board_archived ON commercial_boards(is_archived)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_com_member_user ON commercial_board_members(user_id)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_com_task_board ON commercial_tasks(board_id)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_com_task_status ON commercial_tasks(status)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_com_task_assignee ON commercial_tasks(assignee_user_id)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_com_task_due_date ON commercial_tasks(due_date)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_com_task_customer ON commercial_tasks(customer_name)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_com_comment_task ON commercial_task_comments(task_id)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_com_comment_user ON commercial_task_comments(user_id)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_crm_client_owner ON crm_clients(owner_user_id)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_crm_client_status ON crm_clients(status)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_crm_client_last_purchase ON crm_clients(last_purchase_date)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_crm_sale_client ON crm_sales(client_id)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_crm_sale_seller ON crm_sales(seller_user_id)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_crm_sale_date ON crm_sales(sale_date)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_purchase_product_name ON purchase_products(name)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_purchase_alert_status ON purchase_shortage_alerts(status)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_purchase_alert_user ON purchase_shortage_alerts(requested_by_user_id)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_purchase_alert_code ON purchase_shortage_alerts(product_code)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_purchase_alert_created ON purchase_shortage_alerts(created_at)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_ti_req_status ON operator_ti_requests(status)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_ti_req_user ON operator_ti_requests(requested_by_user_id)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_users_department ON users(department_id)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_users_staff ON users(staff_id)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_users_is_seller ON users(is_seller)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_perm_user ON user_route_permissions(user_id)');
 
         self::seedDefaults($pdo);
@@ -244,8 +408,8 @@ final class SchemaService
         $count = (int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
         if ($count === 0) {
             $stmt = $pdo->prepare(
-                'INSERT INTO users (username, password_hash, name, role, department_id, staff_id)
-                 VALUES (:username, :password_hash, :name, :role, :department_id, :staff_id)'
+                'INSERT INTO users (username, password_hash, name, role, department_id, staff_id, is_seller)
+                 VALUES (:username, :password_hash, :name, :role, :department_id, :staff_id, :is_seller)'
             );
             $stmt->execute([
                 ':username' => $config['default_admin']['username'],
@@ -254,8 +418,14 @@ final class SchemaService
                 ':role' => 'admin',
                 ':department_id' => null,
                 ':staff_id' => null,
+                ':is_seller' => 0,
             ]);
         }
+
+        $pdo->exec(
+            'INSERT OR IGNORE INTO crm_settings (id, followup_after_days, updated_at)
+             VALUES (1, 30, CURRENT_TIMESTAMP)'
+        );
     }
 
     private static function ensureAssetColumn(PDO $pdo, string $column, string $definition): void
@@ -282,6 +452,58 @@ final class SchemaService
         }
 
         $pdo->exec(sprintf('ALTER TABLE users ADD COLUMN %s %s', $column, $definition));
+    }
+
+    private static function ensureShortageColumn(PDO $pdo, string $column, string $definition): void
+    {
+        $stmt = $pdo->query('PRAGMA table_info(purchase_shortage_alerts)');
+        $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($columns as $item) {
+            if (($item['name'] ?? null) === $column) {
+                return;
+            }
+        }
+
+        $pdo->exec(sprintf('ALTER TABLE purchase_shortage_alerts ADD COLUMN %s %s', $column, $definition));
+    }
+
+    private static function ensureCommercialBoardColumn(PDO $pdo, string $column, string $definition): void
+    {
+        $stmt = $pdo->query('PRAGMA table_info(commercial_boards)');
+        $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($columns as $item) {
+            if (($item['name'] ?? null) === $column) {
+                return;
+            }
+        }
+
+        $pdo->exec(sprintf('ALTER TABLE commercial_boards ADD COLUMN %s %s', $column, $definition));
+    }
+
+    private static function ensureCommercialTaskColumn(PDO $pdo, string $column, string $definition): void
+    {
+        $stmt = $pdo->query('PRAGMA table_info(commercial_tasks)');
+        $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($columns as $item) {
+            if (($item['name'] ?? null) === $column) {
+                return;
+            }
+        }
+
+        $pdo->exec(sprintf('ALTER TABLE commercial_tasks ADD COLUMN %s %s', $column, $definition));
+    }
+
+    private static function ensureCrmClientColumn(PDO $pdo, string $column, string $definition): void
+    {
+        $stmt = $pdo->query('PRAGMA table_info(crm_clients)');
+        $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($columns as $item) {
+            if (($item['name'] ?? null) === $column) {
+                return;
+            }
+        }
+
+        $pdo->exec(sprintf('ALTER TABLE crm_clients ADD COLUMN %s %s', $column, $definition));
     }
 
     private static function seedDefaults(PDO $pdo): void

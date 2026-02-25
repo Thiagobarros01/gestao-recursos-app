@@ -26,25 +26,34 @@ final class CommercialKanbanController
     public function index(): void
     {
         $user = Auth::user();
-        $boards = $this->kanban->boardsForUser($user);
+        $showArchived = (int) ($_GET['show_archived'] ?? 0) === 1;
+        $boards = $this->kanban->boardsForUser($user, $showArchived);
+        $filters = $this->readTaskFilters($_GET, $user);
 
         $selectedBoardId = (int) ($_GET['board'] ?? 0);
         if ($selectedBoardId <= 0 && !empty($boards)) {
             $selectedBoardId = (int) $boards[0]['id'];
         }
 
-        $selectedBoard = $selectedBoardId > 0 ? $this->kanban->findBoardByIdForUser($selectedBoardId, $user) : null;
+        $selectedBoard = $selectedBoardId > 0 ? $this->kanban->findBoardByIdForUser($selectedBoardId, $user, $showArchived) : null;
         $canManage = $selectedBoard ? $this->kanban->canManageBoard((int) $selectedBoard['id'], $user) : false;
         $canCreateBoard = $this->canCreateBoard();
 
         $members = [];
         $tasksByStatus = $this->emptyColumns();
         $managerSummary = null;
+        $commentsByTaskId = [];
+        $stageLabels = $this->stageLabelsFromBoard($selectedBoard);
         if ($selectedBoard) {
             $members = $this->kanban->membersByBoardId((int) $selectedBoard['id']);
             $assigneeFilter = $canManage ? null : (int) ($user['id'] ?? 0);
-            $tasks = $this->kanban->tasksByBoardId((int) $selectedBoard['id'], $assigneeFilter > 0 ? $assigneeFilter : null);
+            $tasks = $this->kanban->tasksByBoardId(
+                (int) $selectedBoard['id'],
+                $assigneeFilter > 0 ? $assigneeFilter : null,
+                $filters
+            );
             $tasksByStatus = $this->groupTasks($tasks);
+            $commentsByTaskId = $this->kanban->commentsByTaskIds(array_map(static fn(array $task): int => (int) $task['id'], $tasks));
             if ($canManage) {
                 $managerSummary = $this->buildManagerSummary($tasks);
             }
@@ -58,13 +67,17 @@ final class CommercialKanbanController
             'members' => $members,
             'users' => $this->users->all(),
             'tasksByStatus' => $tasksByStatus,
+            'commentsByTaskId' => $commentsByTaskId,
+            'stageLabels' => $stageLabels,
             'managerSummary' => $managerSummary,
             'canManage' => $canManage,
             'canCreateBoard' => $canCreateBoard,
             'statuses' => self::STATUSES,
             'priorities' => self::PRIORITIES,
+            'filters' => $filters,
             'success' => $_GET['ok'] ?? null,
             'error' => $_GET['error'] ?? null,
+            'showArchived' => $showArchived,
         ]);
     }
 
@@ -95,7 +108,7 @@ final class CommercialKanbanController
     public function updateMembers(array $input): void
     {
         $boardId = (int) ($input['board_id'] ?? 0);
-        $board = $this->kanban->findBoardByIdForUser($boardId, Auth::user());
+        $board = $this->kanban->findBoardByIdForUser($boardId, Auth::user(), true);
         if ($board === null || !$this->kanban->canManageBoard($boardId, Auth::user())) {
             View::redirect('commercial.kanban&error=3');
         }
@@ -122,18 +135,27 @@ final class CommercialKanbanController
         $boardId = (int) ($input['board_id'] ?? 0);
         $name = trim((string) ($input['name'] ?? ''));
         $description = trim((string) ($input['description'] ?? ''));
+        $stageTodo = trim((string) ($input['stage_name_todo'] ?? ''));
+        $stageDoing = trim((string) ($input['stage_name_doing'] ?? ''));
+        $stageReview = trim((string) ($input['stage_name_review'] ?? ''));
+        $stageDone = trim((string) ($input['stage_name_done'] ?? ''));
 
         if ($boardId <= 0 || $name === '') {
             View::redirect('commercial.kanban&error=1');
         }
 
-        $board = $this->kanban->findBoardByIdForUser($boardId, Auth::user());
+        $board = $this->kanban->findBoardByIdForUser($boardId, Auth::user(), true);
         if ($board === null || !$this->kanban->canManageBoard($boardId, Auth::user())) {
             View::redirect('commercial.kanban&error=3');
         }
 
         try {
-            $ok = $this->kanban->updateBoard($boardId, $name, $description);
+            $ok = $this->kanban->updateBoard($boardId, $name, $description, [
+                'todo' => $stageTodo,
+                'doing' => $stageDoing,
+                'review' => $stageReview,
+                'done' => $stageDone,
+            ]);
             if (!$ok) {
                 View::redirect('commercial.kanban&error=2&board=' . $boardId);
             }
@@ -147,19 +169,26 @@ final class CommercialKanbanController
     public function createTask(array $input): void
     {
         $boardId = (int) ($input['board_id'] ?? 0);
-        $board = $this->kanban->findBoardByIdForUser($boardId, Auth::user());
+        $board = $this->kanban->findBoardByIdForUser($boardId, Auth::user(), true);
         if ($board === null || !$this->kanban->canManageBoard($boardId, Auth::user())) {
             View::redirect('commercial.kanban&error=3');
+        }
+        if ((int) ($board['is_archived'] ?? 0) === 1) {
+            View::redirect('commercial.kanban&error=4&board=' . $boardId . '&show_archived=1');
         }
 
         $title = trim((string) ($input['title'] ?? ''));
         $description = trim((string) ($input['description'] ?? ''));
+        $customerName = trim((string) ($input['customer_name'] ?? ''));
+        $companyName = trim((string) ($input['company_name'] ?? ''));
+        $dealValue = trim((string) ($input['deal_value'] ?? ''));
+        $tagName = trim((string) ($input['tag_name'] ?? ''));
         $status = trim((string) ($input['status'] ?? 'todo'));
         $priority = trim((string) ($input['priority'] ?? 'media'));
         $assigneeUserId = (int) ($input['assignee_user_id'] ?? 0);
         $dueDate = trim((string) ($input['due_date'] ?? ''));
 
-        if ($title === '' || !in_array($status, self::STATUSES, true) || !in_array($priority, self::PRIORITIES, true) || !$this->isValidDateOrEmpty($dueDate)) {
+        if ($title === '' || !in_array($status, self::STATUSES, true) || !in_array($priority, self::PRIORITIES, true) || !$this->isValidDateOrEmpty($dueDate) || !$this->isValidMoneyOrEmpty($dealValue)) {
             View::redirect('commercial.kanban&error=1&board=' . $boardId);
         }
 
@@ -172,6 +201,10 @@ final class CommercialKanbanController
                 'board_id' => $boardId,
                 'title' => $title,
                 'description' => $description,
+                'customer_name' => $customerName,
+                'company_name' => $companyName,
+                'deal_value' => $dealValue !== '' ? (float) str_replace(',', '.', $dealValue) : null,
+                'tag_name' => $tagName,
                 'status' => $status,
                 'priority' => $priority,
                 'assignee_user_id' => $assigneeUserId > 0 ? $assigneeUserId : null,
@@ -201,9 +234,12 @@ final class CommercialKanbanController
             View::redirect('commercial.kanban&error=1');
         }
 
-        $board = $this->kanban->findBoardByIdForUser((int) $task['board_id'], Auth::user());
+        $board = $this->kanban->findBoardByIdForUser((int) $task['board_id'], Auth::user(), true);
         if ($board === null) {
             View::redirect('commercial.kanban&error=3');
+        }
+        if ((int) ($board['is_archived'] ?? 0) === 1) {
+            View::redirect('commercial.kanban&error=4&board=' . (int) $task['board_id'] . '&show_archived=1');
         }
 
         $canManage = $this->kanban->canManageBoard((int) $task['board_id'], Auth::user());
@@ -238,9 +274,15 @@ final class CommercialKanbanController
         }
 
         $boardId = (int) $task['board_id'];
-        $board = $this->kanban->findBoardByIdForUser($boardId, Auth::user());
+        $board = $this->kanban->findBoardByIdForUser($boardId, Auth::user(), true);
         if ($board === null) {
             View::redirect('commercial.kanban&error=3');
+        }
+        if ((int) ($board['is_archived'] ?? 0) === 1) {
+            View::redirect('commercial.kanban&error=4&board=' . $boardId . '&show_archived=1');
+        }
+        if ((int) ($board['is_archived'] ?? 0) === 1) {
+            View::redirect('commercial.kanban&error=4&board=' . $boardId . '&show_archived=1');
         }
 
         $canManage = $this->kanban->canManageBoard($boardId, Auth::user());
@@ -252,11 +294,15 @@ final class CommercialKanbanController
 
         $title = trim((string) ($input['title'] ?? ''));
         $description = trim((string) ($input['description'] ?? ''));
+        $customerName = trim((string) ($input['customer_name'] ?? ''));
+        $companyName = trim((string) ($input['company_name'] ?? ''));
+        $dealValue = trim((string) ($input['deal_value'] ?? ''));
+        $tagName = trim((string) ($input['tag_name'] ?? ''));
         $priority = trim((string) ($input['priority'] ?? 'media'));
         $dueDate = trim((string) ($input['due_date'] ?? ''));
         $assigneeUserId = (int) ($input['assignee_user_id'] ?? 0);
 
-        if ($title === '' || !in_array($priority, self::PRIORITIES, true) || !$this->isValidDateOrEmpty($dueDate)) {
+        if ($title === '' || !in_array($priority, self::PRIORITIES, true) || !$this->isValidDateOrEmpty($dueDate) || !$this->isValidMoneyOrEmpty($dealValue)) {
             View::redirect('commercial.kanban&error=1&board=' . $boardId);
         }
         if ($assigneeUserId > 0 && !$this->assigneeBelongsToBoard($boardId, $assigneeUserId)) {
@@ -271,6 +317,10 @@ final class CommercialKanbanController
             $ok = $this->kanban->updateTask($taskId, [
                 'title' => $title,
                 'description' => $description,
+                'customer_name' => $customerName,
+                'company_name' => $companyName,
+                'deal_value' => $dealValue !== '' ? (float) str_replace(',', '.', $dealValue) : null,
+                'tag_name' => $tagName,
                 'priority' => $priority,
                 'assignee_user_id' => $assigneeUserId > 0 ? $assigneeUserId : null,
                 'due_date' => $dueDate,
@@ -309,22 +359,155 @@ final class CommercialKanbanController
         View::redirect('commercial.kanban&ok=5&board=' . (int) $task['board_id']);
     }
 
+    public function addComment(array $input): void
+    {
+        $taskId = (int) ($input['task_id'] ?? 0);
+        $commentText = trim((string) ($input['comment_text'] ?? ''));
+        if ($taskId <= 0 || $commentText === '') {
+            View::redirect('commercial.kanban&error=1');
+        }
+
+        $task = $this->kanban->findTaskById($taskId);
+        if ($task === null) {
+            View::redirect('commercial.kanban&error=1');
+        }
+
+        $boardId = (int) $task['board_id'];
+        $board = $this->kanban->findBoardByIdForUser($boardId, Auth::user(), true);
+        if ($board === null) {
+            View::redirect('commercial.kanban&error=3');
+        }
+
+        $canManage = $this->kanban->canManageBoard($boardId, Auth::user());
+        $currentUserId = (int) (Auth::user()['id'] ?? 0);
+        $isAssignee = (int) ($task['assignee_user_id'] ?? 0) === $currentUserId;
+        if (!$canManage && !$isAssignee) {
+            View::redirect('commercial.kanban&error=3&board=' . $boardId);
+        }
+
+        try {
+            $ok = $this->kanban->createTaskComment($taskId, $currentUserId, $commentText);
+            if (!$ok) {
+                View::redirect('commercial.kanban&error=2&board=' . $boardId);
+            }
+        } catch (Throwable) {
+            View::redirect('commercial.kanban&error=2&board=' . $boardId);
+        }
+
+        View::redirect('commercial.kanban&ok=11&board=' . $boardId);
+    }
+
+    public function deleteComment(array $input): void
+    {
+        $commentId = (int) ($input['comment_id'] ?? 0);
+        if ($commentId <= 0) {
+            View::redirect('commercial.kanban&error=1');
+        }
+
+        $comment = $this->kanban->findCommentById($commentId);
+        if ($comment === null) {
+            View::redirect('commercial.kanban&error=1');
+        }
+
+        $task = $this->kanban->findTaskById((int) ($comment['task_id'] ?? 0));
+        if ($task === null) {
+            View::redirect('commercial.kanban&error=1');
+        }
+
+        $boardId = (int) $task['board_id'];
+        $canManage = $this->kanban->canManageBoard($boardId, Auth::user());
+        $currentUserId = (int) (Auth::user()['id'] ?? 0);
+        if (!$canManage && (int) ($comment['user_id'] ?? 0) !== $currentUserId) {
+            View::redirect('commercial.kanban&error=3&board=' . $boardId);
+        }
+
+        try {
+            $ok = $this->kanban->deleteTaskComment($commentId);
+            if (!$ok) {
+                View::redirect('commercial.kanban&error=2&board=' . $boardId);
+            }
+        } catch (Throwable) {
+            View::redirect('commercial.kanban&error=2&board=' . $boardId);
+        }
+
+        View::redirect('commercial.kanban&ok=12&board=' . $boardId);
+    }
+
+    public function archiveBoard(array $input): void
+    {
+        $boardId = (int) ($input['board_id'] ?? 0);
+        if ($boardId <= 0) {
+            View::redirect('commercial.kanban&error=1');
+        }
+
+        $board = $this->kanban->findBoardByIdForUser($boardId, Auth::user(), true);
+        if ($board === null || !$this->kanban->canManageBoard($boardId, Auth::user())) {
+            View::redirect('commercial.kanban&error=3');
+        }
+
+        try {
+            $ok = $this->kanban->archiveBoard($boardId);
+            if (!$ok) {
+                View::redirect('commercial.kanban&error=2&board=' . $boardId);
+            }
+        } catch (Throwable) {
+            View::redirect('commercial.kanban&error=2&board=' . $boardId);
+        }
+
+        View::redirect('commercial.kanban&ok=8&show_archived=1');
+    }
+
+    public function unarchiveBoard(array $input): void
+    {
+        $boardId = (int) ($input['board_id'] ?? 0);
+        if ($boardId <= 0) {
+            View::redirect('commercial.kanban&error=1');
+        }
+
+        $board = $this->kanban->findBoardByIdForUser($boardId, Auth::user(), true);
+        if ($board === null || !$this->kanban->canManageBoard($boardId, Auth::user())) {
+            View::redirect('commercial.kanban&error=3');
+        }
+
+        try {
+            $ok = $this->kanban->unarchiveBoard($boardId);
+            if (!$ok) {
+                View::redirect('commercial.kanban&error=2&board=' . $boardId . '&show_archived=1');
+            }
+        } catch (Throwable) {
+            View::redirect('commercial.kanban&error=2&board=' . $boardId . '&show_archived=1');
+        }
+
+        View::redirect('commercial.kanban&ok=9&board=' . $boardId);
+    }
+
+    public function deleteBoard(array $input): void
+    {
+        $boardId = (int) ($input['board_id'] ?? 0);
+        if ($boardId <= 0) {
+            View::redirect('commercial.kanban&error=1');
+        }
+
+        $board = $this->kanban->findBoardByIdForUser($boardId, Auth::user(), true);
+        if ($board === null || !$this->kanban->canManageBoard($boardId, Auth::user())) {
+            View::redirect('commercial.kanban&error=3');
+        }
+
+        try {
+            $ok = $this->kanban->deleteBoard($boardId);
+            if (!$ok) {
+                View::redirect('commercial.kanban&error=2&board=' . $boardId . '&show_archived=1');
+            }
+        } catch (Throwable) {
+            View::redirect('commercial.kanban&error=2&board=' . $boardId . '&show_archived=1');
+        }
+
+        View::redirect('commercial.kanban&ok=10&show_archived=1');
+    }
+
     private function canCreateBoard(): bool
     {
         $user = Auth::user();
-        if (AccessControl::isFullAccess($user)) {
-            return true;
-        }
-
-        if (!$user) {
-            return false;
-        }
-
-        $role = AccessControl::normalizeRole($user['role'] ?? null);
-        if ($role === 'gestor') {
-            return true;
-        }
-
         return AccessControl::canAccessRoute('commercial.kanban.board.store', $user);
     }
 
@@ -349,6 +532,16 @@ final class CommercialKanbanController
         return $date && $date->format('Y-m-d') === $value;
     }
 
+    private function isValidMoneyOrEmpty(string $value): bool
+    {
+        if ($value === '') {
+            return true;
+        }
+
+        $normalized = str_replace(',', '.', $value);
+        return is_numeric($normalized);
+    }
+
     private function emptyColumns(): array
     {
         $columns = [];
@@ -371,10 +564,44 @@ final class CommercialKanbanController
         return $columns;
     }
 
+    private function readTaskFilters(array $source, ?array $user): array
+    {
+        $priority = trim((string) ($source['priority_filter'] ?? ''));
+        if (!in_array($priority, self::PRIORITIES, true)) {
+            $priority = '';
+        }
+
+        $assigneeUserId = (int) ($source['assignee_user_id'] ?? 0);
+        $onlyMine = (int) ($source['only_mine'] ?? 0) === 1;
+        if ($onlyMine) {
+            $assigneeUserId = (int) ($user['id'] ?? 0);
+        }
+
+        return [
+            'query' => trim((string) ($source['q'] ?? '')),
+            'priority' => $priority,
+            'assignee_user_id' => $assigneeUserId > 0 ? $assigneeUserId : 0,
+            'only_overdue' => (int) ((string) ($source['only_overdue'] ?? '0') === '1'),
+            'due_today' => (int) ((string) ($source['due_today'] ?? '0') === '1'),
+            'only_mine' => $onlyMine ? 1 : 0,
+        ];
+    }
+
+    private function stageLabelsFromBoard(?array $board): array
+    {
+        return [
+            'todo' => trim((string) ($board['stage_name_todo'] ?? '')) ?: 'Prospeccao',
+            'doing' => trim((string) ($board['stage_name_doing'] ?? '')) ?: 'Contato',
+            'review' => trim((string) ($board['stage_name_review'] ?? '')) ?: 'Proposta',
+            'done' => trim((string) ($board['stage_name_done'] ?? '')) ?: 'Fechado',
+        ];
+    }
+
     private function buildManagerSummary(array $tasks): array
     {
         $byStatus = array_fill_keys(self::STATUSES, 0);
         $byAssignee = [];
+        $totalValue = 0.0;
 
         foreach ($tasks as $task) {
             $status = (string) ($task['status'] ?? 'todo');
@@ -391,12 +618,18 @@ final class CommercialKanbanController
                 $byAssignee[$assigneeName] = 0;
             }
             $byAssignee[$assigneeName]++;
+
+            $dealValue = (float) ($task['deal_value'] ?? 0);
+            if ($dealValue > 0) {
+                $totalValue += $dealValue;
+            }
         }
 
         arsort($byAssignee);
 
         return [
             'total' => count($tasks),
+            'total_value' => $totalValue,
             'by_status' => $byStatus,
             'by_assignee' => $byAssignee,
         ];
