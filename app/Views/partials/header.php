@@ -39,7 +39,10 @@ $hideMenu = $hideMenu ?? false;
                     <a class="nav-link <?= $currentRoute === 'ti.dashboard' ? 'active' : '' ?>" href="index.php?r=ti.dashboard">Dashboard TI</a>
                 <?php endif; ?>
                 <?php if (AccessControl::canAccessRoute('ti.assets', $user)): ?>
-                    <a class="nav-link <?= $currentRoute === 'ti.assets' ? 'active' : '' ?>" href="index.php?r=ti.assets">Ativos e contratos</a>
+                    <a class="nav-link <?= $currentRoute === 'ti.assets' ? 'active' : '' ?>" href="index.php?r=ti.assets">Ativos gerais</a>
+                <?php endif; ?>
+                <?php if (AccessControl::canAccessRoute('ti.contracts', $user)): ?>
+                    <a class="nav-link <?= $currentRoute === 'ti.contracts' ? 'active' : '' ?>" href="index.php?r=ti.contracts">Contratos e termos</a>
                 <?php endif; ?>
                 <?php if (AccessControl::canAccessRoute('ti.home-requests', $user)): ?>
                     <a class="nav-link <?= $currentRoute === 'ti.home-requests' ? 'active' : '' ?>" href="index.php?r=ti.home-requests">Pedido casa</a>

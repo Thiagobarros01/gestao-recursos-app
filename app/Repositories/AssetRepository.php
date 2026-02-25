@@ -12,15 +12,23 @@ final class AssetRepository
     {
     }
 
-    public function list(string $search = '', ?string $department = null): array
+    public function list(
+        string $search = '',
+        ?string $department = null,
+        ?int $staffId = null,
+        ?int $filterDepartmentId = null,
+        ?int $filterResponsibleId = null
+    ): array
     {
         $sql =
             'SELECT a.*, s.name AS staff_name,
+                    d.name AS asset_department_name,
                     c.name AS category_name,
                     ct.name AS contract_type_name,
                     st.name AS status_name
              FROM assets a
              LEFT JOIN staff s ON s.id = a.staff_id
+             LEFT JOIN departments d ON d.id = a.department_id
              LEFT JOIN equipment_categories c ON c.id = a.category_id
              LEFT JOIN contract_types ct ON ct.id = a.contract_type_id
              LEFT JOIN asset_statuses st ON st.id = a.status_id';
@@ -29,17 +37,37 @@ final class AssetRepository
         $where = [];
 
         if ($department !== null) {
-            $where[] = 's.department = :department';
+            $where[] = '(s.department = :department OR d.name = :department)';
             $params[':department'] = $department;
+        }
+
+        if ($staffId !== null) {
+            $where[] = 'a.staff_id = :staff_id';
+            $params[':staff_id'] = $staffId;
+        }
+
+        if ($filterDepartmentId !== null && $filterDepartmentId > 0) {
+            $where[] = '(a.department_id = :filter_department_id OR s.department = (SELECT name FROM departments WHERE id = :filter_department_id))';
+            $params[':filter_department_id'] = $filterDepartmentId;
+        }
+
+        if ($filterResponsibleId !== null && $filterResponsibleId > 0) {
+            $where[] = 'a.staff_id = :filter_responsible_id';
+            $params[':filter_responsible_id'] = $filterResponsibleId;
         }
 
         if ($search !== '') {
             $where[] = '(a.tag LIKE :q
                         OR a.serial_number LIKE :q
                         OR COALESCE(a.condition_state, \'\') LIKE :q
+                        OR COALESCE(a.ownership_type, \'\') LIKE :q
+                        OR COALESCE(a.network_mode, \'\') LIKE :q
+                        OR COALESCE(a.ip_address, \'\') LIKE :q
+                        OR COALESCE(a.document_path, \'\') LIKE :q
                         OR COALESCE(c.name, a.type) LIKE :q
                         OR COALESCE(st.name, a.status) LIKE :q
                         OR COALESCE(ct.name, \'\') LIKE :q
+                        OR COALESCE(d.name, \'\') LIKE :q
                         OR COALESCE(s.name, \'\') LIKE :q)';
             $params[':q'] = '%' . $search . '%';
         }
@@ -54,15 +82,17 @@ final class AssetRepository
         return $stmt->fetchAll();
     }
 
-    public function findById(int $id, ?string $department = null): ?array
+    public function findById(int $id, ?string $department = null, ?int $staffId = null): ?array
     {
         $sql =
             'SELECT a.*, s.name AS staff_name,
+                    d.name AS asset_department_name,
                     c.name AS category_name,
                     ct.name AS contract_type_name,
                     st.name AS status_name
              FROM assets a
              LEFT JOIN staff s ON s.id = a.staff_id
+             LEFT JOIN departments d ON d.id = a.department_id
              LEFT JOIN equipment_categories c ON c.id = a.category_id
              LEFT JOIN contract_types ct ON ct.id = a.contract_type_id
              LEFT JOIN asset_statuses st ON st.id = a.status_id
@@ -70,8 +100,12 @@ final class AssetRepository
 
         $params = [':id' => $id];
         if ($department !== null) {
-            $sql .= ' AND s.department = :department';
+            $sql .= ' AND (s.department = :department OR d.name = :department)';
             $params[':department'] = $department;
+        }
+        if ($staffId !== null) {
+            $sql .= ' AND a.staff_id = :staff_id';
+            $params[':staff_id'] = $staffId;
         }
 
         $sql .= ' LIMIT 1';
@@ -82,35 +116,51 @@ final class AssetRepository
         return $row ?: null;
     }
 
-    public function countAll(?string $department = null): int
+    public function countAll(?string $department = null, ?int $staffId = null): int
     {
-        if ($department === null) {
+        if ($department === null && $staffId === null) {
             return (int) $this->pdo->query('SELECT COUNT(*) FROM assets')->fetchColumn();
         }
 
-        $stmt = $this->pdo->prepare(
+        $sql =
             'SELECT COUNT(*)
              FROM assets a
-             INNER JOIN staff s ON s.id = a.staff_id
-             WHERE s.department = :department'
-        );
-        $stmt->execute([':department' => $department]);
+             LEFT JOIN staff s ON s.id = a.staff_id
+             LEFT JOIN departments d ON d.id = a.department_id
+             WHERE 1 = 1';
+        $params = [];
+        if ($department !== null) {
+            $sql .= ' AND (s.department = :department OR d.name = :department)';
+            $params[':department'] = $department;
+        }
+        if ($staffId !== null) {
+            $sql .= ' AND a.staff_id = :staff_id';
+            $params[':staff_id'] = $staffId;
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
         return (int) $stmt->fetchColumn();
     }
 
-    public function countByStatus(string $status, ?string $department = null): int
+    public function countByStatus(string $status, ?string $department = null, ?int $staffId = null): int
     {
         $sql =
             'SELECT COUNT(*)
              FROM assets a
              LEFT JOIN asset_statuses st ON st.id = a.status_id
              LEFT JOIN staff s ON s.id = a.staff_id
+             LEFT JOIN departments d ON d.id = a.department_id
              WHERE COALESCE(st.name, a.status) = :status';
         $params = [':status' => $status];
 
         if ($department !== null) {
-            $sql .= ' AND s.department = :department';
+            $sql .= ' AND (s.department = :department OR d.name = :department)';
             $params[':department'] = $department;
+        }
+        if ($staffId !== null) {
+            $sql .= ' AND a.staff_id = :staff_id';
+            $params[':staff_id'] = $staffId;
         }
 
         $stmt = $this->pdo->prepare($sql);
@@ -143,6 +193,10 @@ final class AssetRepository
                 warranty_until,
                 contract_until,
                 returned_at,
+                ownership_type,
+                department_id,
+                network_mode,
+                ip_address,
                 updated_at
             ) VALUES (
                 :type,
@@ -161,6 +215,10 @@ final class AssetRepository
                 :warranty_until,
                 :contract_until,
                 :returned_at,
+                :ownership_type,
+                :department_id,
+                :network_mode,
+                :ip_address,
                 CURRENT_TIMESTAMP
             )'
         );
@@ -182,6 +240,10 @@ final class AssetRepository
             ':warranty_until' => $data['warranty_until'] ?: null,
             ':contract_until' => $data['contract_until'] ?: null,
             ':returned_at' => $data['returned_at'] ?: null,
+            ':ownership_type' => $data['ownership_type'] ?: null,
+            ':department_id' => $data['department_id'] !== '' ? (int) $data['department_id'] : null,
+            ':network_mode' => $data['network_mode'] ?: null,
+            ':ip_address' => $data['ip_address'] ?: null,
         ]);
 
         return $ok ? (int) $this->pdo->lastInsertId() : 0;
@@ -207,6 +269,10 @@ final class AssetRepository
                  warranty_until = :warranty_until,
                  contract_until = :contract_until,
                  returned_at = :returned_at,
+                 ownership_type = :ownership_type,
+                 department_id = :department_id,
+                 network_mode = :network_mode,
+                 ip_address = :ip_address,
                  updated_at = CURRENT_TIMESTAMP
              WHERE id = :id'
         );
@@ -229,6 +295,10 @@ final class AssetRepository
             ':warranty_until' => $data['warranty_until'] ?: null,
             ':contract_until' => $data['contract_until'] ?: null,
             ':returned_at' => $data['returned_at'] ?: null,
+            ':ownership_type' => $data['ownership_type'] ?: null,
+            ':department_id' => $data['department_id'] !== '' ? (int) $data['department_id'] : null,
+            ':network_mode' => $data['network_mode'] ?: null,
+            ':ip_address' => $data['ip_address'] ?: null,
         ]);
     }
 

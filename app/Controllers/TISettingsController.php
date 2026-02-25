@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\AccessControl;
 use App\Core\View;
 use App\Repositories\LookupRepository;
+use App\Repositories\StaffRepository;
 use App\Repositories\UserRepository;
 use Throwable;
 
@@ -14,7 +15,8 @@ final class TISettingsController
 {
     public function __construct(
         private LookupRepository $lookups,
-        private UserRepository $users
+        private UserRepository $users,
+        private StaffRepository $staff
     ) {
     }
 
@@ -33,6 +35,7 @@ final class TISettingsController
             'contractTypes' => $this->lookups->contractTypes(),
             'statuses' => $this->lookups->statuses(),
             'departments' => $this->lookups->departments(),
+            'staffMembers' => $this->staff->all(),
             'users' => $this->users->all(),
             'permissionGroups' => AccessControl::permissionGroups(),
             'success' => $_GET['ok'] ?? null,
@@ -248,6 +251,7 @@ final class TISettingsController
         $password = (string) ($input['password'] ?? '');
         $role = AccessControl::normalizeRole($input['role'] ?? 'operador');
         $departmentId = (int) ($input['department_id'] ?? 0);
+        $staffId = (int) ($input['staff_id'] ?? 0);
         $permissionGroups = $input['permission_groups'] ?? [];
 
         if ($name === '' || $username === '' || $password === '') {
@@ -261,6 +265,7 @@ final class TISettingsController
         $routes = $role === 'gestor' ? AccessControl::routesFromGroupKeys($permissionGroups) : [];
         $passwordHash = password_hash($password, PASSWORD_DEFAULT);
         $departmentValue = $departmentId > 0 ? $departmentId : null;
+        $staffValue = $staffId > 0 ? $staffId : null;
 
         $ok = $this->users->create(
             $name,
@@ -268,6 +273,7 @@ final class TISettingsController
             $passwordHash,
             $role,
             $departmentValue,
+            $staffValue,
             $routes
         );
 
@@ -291,6 +297,7 @@ final class TISettingsController
         $password = (string) ($input['password'] ?? '');
         $role = AccessControl::normalizeRole($input['role'] ?? 'operador');
         $departmentId = (int) ($input['department_id'] ?? 0);
+        $staffId = (int) ($input['staff_id'] ?? 0);
         $permissionGroups = $input['permission_groups'] ?? [];
 
         if ($name === '' || $username === '') {
@@ -303,6 +310,7 @@ final class TISettingsController
         $routes = $role === 'gestor' ? AccessControl::routesFromGroupKeys($permissionGroups) : [];
         $passwordHash = $password !== '' ? password_hash($password, PASSWORD_DEFAULT) : null;
         $departmentValue = $departmentId > 0 ? $departmentId : null;
+        $staffValue = $staffId > 0 ? $staffId : null;
 
         $ok = $this->users->update(
             $id,
@@ -311,6 +319,7 @@ final class TISettingsController
             $passwordHash,
             $role,
             $departmentValue,
+            $staffValue,
             $routes
         );
 

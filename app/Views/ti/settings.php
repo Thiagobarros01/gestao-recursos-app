@@ -170,6 +170,18 @@
                 <?php endforeach; ?>
             </select>
 
+            <select name="staff_id">
+                <option value="">Sem colaborador vinculado</option>
+                <?php foreach ($staffMembers as $staffMember): ?>
+                    <option
+                        value="<?= (int) $staffMember['id'] ?>"
+                        <?= (int) ($editingUser['staff_id'] ?? 0) === (int) $staffMember['id'] ? 'selected' : '' ?>
+                    >
+                        <?= htmlspecialchars((string) $staffMember['name']) ?><?= !empty($staffMember['department']) ? ' - ' . htmlspecialchars((string) $staffMember['department']) : '' ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+
             <div class="full permission-grid">
                 <p class="muted">Permissoes extras para gestor (selecionadas pelo administrador):</p>
                 <?php
@@ -211,6 +223,7 @@
                         <th>Login</th>
                         <th>Papel</th>
                         <th>Departamento</th>
+                        <th>Colaborador</th>
                         <th>Acoes</th>
                     </tr>
                 </thead>
@@ -221,13 +234,14 @@
                             <td><?= htmlspecialchars((string) $row['username']) ?></td>
                             <td><?= htmlspecialchars((string) $row['role']) ?></td>
                             <td><?= htmlspecialchars((string) ($row['department_name'] ?? '')) ?></td>
+                            <td><?= htmlspecialchars((string) ($row['staff_name'] ?? '')) ?></td>
                             <td>
                                 <a class="btn btn-muted" href="index.php?r=ti.settings&user_edit=<?= (int) $row['id'] ?>">Editar</a>
                             </td>
                         </tr>
                     <?php endforeach; ?>
                     <?php if (empty($users)): ?>
-                        <tr><td colspan="5">Nenhum usuario cadastrado.</td></tr>
+                        <tr><td colspan="6">Nenhum usuario cadastrado.</td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>

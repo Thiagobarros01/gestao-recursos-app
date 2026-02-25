@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Controllers\AreaController;
 use App\Controllers\AssetController;
 use App\Controllers\AuthController;
+use App\Controllers\ContractController;
 use App\Controllers\DashboardController;
 use App\Controllers\HomeRequestController;
 use App\Controllers\StaffController;
@@ -48,10 +49,11 @@ $homeRequestRepo->autoMarkOverdueAsReturned();
 
 $authController = new AuthController($userRepo);
 $areaController = new AreaController();
-$dashboardController = new DashboardController($assetRepo, $staffRepo, $lookupRepo);
+$dashboardController = new DashboardController($assetRepo, $staffRepo, $lookupRepo, $homeRequestRepo);
 $staffController = new StaffController($staffRepo, $lookupRepo);
 $assetController = new AssetController($assetRepo, $staffRepo, $lookupRepo);
-$tiSettingsController = new TISettingsController($lookupRepo, $userRepo);
+$contractController = new ContractController($assetRepo, $homeRequestRepo);
+$tiSettingsController = new TISettingsController($lookupRepo, $userRepo, $staffRepo);
 $homeRequestController = new HomeRequestController($homeRequestRepo, $assetRepo, $staffRepo, $lookupRepo);
 
 $route = $_GET['r'] ?? 'areas';
@@ -179,6 +181,9 @@ switch ($route) {
         break;
     case 'ti.settings':
         $tiSettingsController->index();
+        break;
+    case 'ti.contracts':
+        $contractController->index();
         break;
     case 'ti.home-requests':
         $homeRequestController->index();

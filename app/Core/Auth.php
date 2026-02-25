@@ -34,6 +34,8 @@ final class Auth
             'role' => $user['role'] ?? 'operador',
             'department_id' => $user['department_id'] ?? null,
             'department_name' => $user['department_name'] ?? '',
+            'staff_id' => $user['staff_id'] ?? null,
+            'staff_name' => $user['staff_name'] ?? '',
             'allowed_routes' => $user['allowed_routes'] ?? [],
         ];
     }

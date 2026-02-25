@@ -24,29 +24,52 @@ final class AssetController
     public function index(): void
     {
         $search = trim($_GET['q'] ?? '');
-        $departmentScope = AccessControl::departmentScope(Auth::user());
+        $staffScope = AccessControl::staffScope(Auth::user());
+        $departmentScope = $staffScope !== null && $staffScope > 0 ? null : AccessControl::departmentScope(Auth::user());
+        $selectedDepartmentId = max(0, (int) ($_GET['department_id'] ?? 0));
+        $selectedResponsibleId = max(0, (int) ($_GET['responsible_id'] ?? 0));
+        if ($staffScope !== null && $staffScope > 0) {
+            $selectedResponsibleId = $staffScope;
+        }
+        $canStore = AccessControl::canAccessRoute('ti.assets.store', Auth::user());
+        $canUpdate = AccessControl::canAccessRoute('ti.assets.update', Auth::user());
+        $canDelete = AccessControl::canAccessRoute('ti.assets.delete', Auth::user());
+        $canTransfer = AccessControl::canAccessRoute('ti.assets.transfer', Auth::user());
         $editId = (int) ($_GET['edit'] ?? 0);
         $transferId = (int) ($_GET['transfer'] ?? 0);
-        $editingAsset = $editId > 0 ? $this->assets->findById($editId, $departmentScope) : null;
-        $transferringAsset = $transferId > 0 ? $this->assets->findById($transferId, $departmentScope) : null;
+        $editingAsset = $canUpdate && $editId > 0 ? $this->assets->findById($editId, $departmentScope, $staffScope !== null && $staffScope > 0 ? $staffScope : null) : null;
+        $transferringAsset = $canTransfer && $transferId > 0 ? $this->assets->findById($transferId, $departmentScope, $staffScope !== null && $staffScope > 0 ? $staffScope : null) : null;
         $movements = $editingAsset ? $this->assets->movementsByAssetId((int) $editingAsset['id'], 20) : [];
         $transferMovements = $transferringAsset ? $this->assets->movementsByAssetId((int) $transferringAsset['id'], 20) : [];
 
         View::render('assets/index', [
             'title' => 'Ativos e Contratos TI',
             'currentRoute' => 'ti.assets',
-            'assets' => $this->assets->list($search, $departmentScope),
-            'staff' => $this->staff->all($departmentScope),
+            'assets' => $this->assets->list(
+                $search,
+                $departmentScope,
+                $staffScope !== null && $staffScope > 0 ? $staffScope : null,
+                $selectedDepartmentId > 0 ? $selectedDepartmentId : null,
+                $selectedResponsibleId > 0 ? $selectedResponsibleId : null
+            ),
+            'staff' => $this->staff->all($departmentScope, $staffScope !== null && $staffScope > 0 ? $staffScope : null),
             'categories' => $this->lookups->categories(),
             'contractTypes' => $this->lookups->contractTypes(),
             'statuses' => $this->lookups->statuses(),
+            'departments' => $this->lookups->departments(),
             'search' => $search,
+            'selectedDepartmentId' => $selectedDepartmentId,
+            'selectedResponsibleId' => $selectedResponsibleId,
             'error' => $_GET['error'] ?? null,
             'success' => $_GET['ok'] ?? null,
             'editingAsset' => $editingAsset,
             'movements' => $movements,
             'transferringAsset' => $transferringAsset,
             'transferMovements' => $transferMovements,
+            'canStore' => $canStore,
+            'canUpdate' => $canUpdate,
+            'canDelete' => $canDelete,
+            'canTransfer' => $canTransfer,
         ]);
     }
 
@@ -81,8 +104,9 @@ final class AssetController
     public function update(array $input): void
     {
         $id = (int) ($input['id'] ?? 0);
-        $departmentScope = AccessControl::departmentScope(Auth::user());
-        $before = $id > 0 ? $this->assets->findById($id, $departmentScope) : null;
+        $staffScope = AccessControl::staffScope(Auth::user());
+        $departmentScope = $staffScope !== null && $staffScope > 0 ? null : AccessControl::departmentScope(Auth::user());
+        $before = $id > 0 ? $this->assets->findById($id, $departmentScope, $staffScope !== null && $staffScope > 0 ? $staffScope : null) : null;
         if ($before === null) {
             View::redirect('ti.assets&error=3');
         }
@@ -110,8 +134,9 @@ final class AssetController
     public function delete(array $input): void
     {
         $id = (int) ($input['id'] ?? 0);
-        $departmentScope = AccessControl::departmentScope(Auth::user());
-        $existing = $id > 0 ? $this->assets->findById($id, $departmentScope) : null;
+        $staffScope = AccessControl::staffScope(Auth::user());
+        $departmentScope = $staffScope !== null && $staffScope > 0 ? null : AccessControl::departmentScope(Auth::user());
+        $existing = $id > 0 ? $this->assets->findById($id, $departmentScope, $staffScope !== null && $staffScope > 0 ? $staffScope : null) : null;
         if ($existing === null) {
             View::redirect('ti.assets&error=3');
         }
@@ -131,14 +156,15 @@ final class AssetController
         $toStaffId = (int) ($input['to_staff_id'] ?? 0);
         $newStatusId = (int) ($input['status_id'] ?? 0);
         $reason = trim((string) ($input['reason'] ?? ''));
-        $departmentScope = AccessControl::departmentScope(Auth::user());
+        $staffScope = AccessControl::staffScope(Auth::user());
+        $departmentScope = $staffScope !== null && $staffScope > 0 ? null : AccessControl::departmentScope(Auth::user());
 
-        $asset = $assetId > 0 ? $this->assets->findById($assetId, $departmentScope) : null;
+        $asset = $assetId > 0 ? $this->assets->findById($assetId, $departmentScope, $staffScope !== null && $staffScope > 0 ? $staffScope : null) : null;
         if ($asset === null || $toStaffId <= 0 || $reason === '') {
             View::redirect('ti.assets&error=4');
         }
 
-        $toStaff = $this->staff->findById($toStaffId, $departmentScope);
+        $toStaff = $this->staff->findById($toStaffId, $departmentScope, $staffScope !== null && $staffScope > 0 ? $staffScope : null);
         if ($toStaff === null) {
             View::redirect('ti.assets&error=4');
         }
@@ -184,6 +210,26 @@ final class AssetController
         $contractTypeId = (int) trim((string) $input['contract_type_id']);
         $statusId = (int) trim((string) $input['status_id']);
         $staffId = (int) ($input['staff_id'] ?? 0);
+        $departmentId = (int) ($input['department_id'] ?? 0);
+        $ownershipType = trim((string) ($input['ownership_type'] ?? ''));
+        $networkMode = strtolower(trim((string) ($input['network_mode'] ?? '')));
+        $ipAddress = trim((string) ($input['ip_address'] ?? ''));
+
+        if (!in_array($ownershipType, ['proprio', 'terceirizado'], true)) {
+            return null;
+        }
+
+        if (!in_array($networkMode, ['dhcp', 'estatico', ''], true)) {
+            return null;
+        }
+
+        if ($networkMode === 'dhcp') {
+            $ipAddress = '';
+        }
+
+        if ($ipAddress !== '' && !$this->isValidIp($ipAddress)) {
+            return null;
+        }
 
         $purchaseDate = $this->normalizeDate((string) ($input['purchase_date'] ?? ''));
         $warrantyUntil = $this->normalizeDate((string) ($input['warranty_until'] ?? ''));
@@ -201,14 +247,27 @@ final class AssetController
             return null;
         }
 
-        $departmentScope = AccessControl::departmentScope(Auth::user());
+        $staffScope = AccessControl::staffScope(Auth::user());
+        $departmentScope = $staffScope !== null && $staffScope > 0 ? null : AccessControl::departmentScope(Auth::user());
         $staffName = '';
         if ($staffId > 0) {
-            $staffRow = $this->staff->findById($staffId, $departmentScope);
+            $staffRow = $this->staff->findById($staffId, $departmentScope, $staffScope !== null && $staffScope > 0 ? $staffScope : null);
             if ($staffRow === null) {
                 return null;
             }
             $staffName = (string) $staffRow['name'];
+        }
+
+        $departmentIdValue = '';
+        if ($departmentId > 0) {
+            $departmentName = $this->lookups->departmentNameById($departmentId);
+            if ($departmentName === null) {
+                return null;
+            }
+            if ($departmentScope !== null && $departmentScope !== '__none__' && $departmentScope !== $departmentName) {
+                return null;
+            }
+            $departmentIdValue = (string) $departmentId;
         }
 
         return [
@@ -228,6 +287,10 @@ final class AssetController
             'warranty_until' => $warrantyUntil,
             'contract_until' => $contractUntil,
             'returned_at' => $returnedAt,
+            'ownership_type' => $ownershipType,
+            'department_id' => $departmentIdValue,
+            'network_mode' => $networkMode,
+            'ip_address' => $ipAddress,
         ];
     }
 
@@ -281,6 +344,18 @@ final class AssetController
         if ((string) ($before['observation'] ?? $before['notes'] ?? '') !== $payload['observation']) {
             $changes[] = 'Observacao';
         }
+        if ((string) ($before['ownership_type'] ?? '') !== $payload['ownership_type']) {
+            $changes[] = 'Propriedade';
+        }
+        if ((int) ($before['department_id'] ?? 0) !== (int) ($payload['department_id'] !== '' ? $payload['department_id'] : 0)) {
+            $changes[] = 'Departamento';
+        }
+        if ((string) ($before['network_mode'] ?? '') !== $payload['network_mode']) {
+            $changes[] = 'Rede';
+        }
+        if ((string) ($before['ip_address'] ?? '') !== $payload['ip_address']) {
+            $changes[] = 'IP';
+        }
 
         $statusChanged = $fromStatus !== $toStatus;
         $staffChanged = $fromStaff !== $toStaff;
@@ -316,5 +391,10 @@ final class AssetController
     {
         $user = Auth::user();
         return (string) ($user['name'] ?? $user['username'] ?? 'Sistema');
+    }
+
+    private function isValidIp(string $ip): bool
+    {
+        return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false;
     }
 }

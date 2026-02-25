@@ -1,10 +1,18 @@
 <section class="page-head">
-    <h1>Ativos e contratos TI</h1>
-    <p>Controle de equipamento com datas e historico de movimentacoes.</p>
+    <h1>Ativos gerais de TI</h1>
+    <p>Inventario central de equipamentos, propriedade, rede, departamento e responsavel.</p>
 </section>
 
 <section class="card">
-    <h2><?= $editingAsset ? 'Editar ativo' : 'Novo ativo' ?></h2>
+    <h2>
+        <?php if ($editingAsset): ?>
+            Editar ativo
+        <?php elseif ($canStore): ?>
+            Novo ativo
+        <?php else: ?>
+            Consulta de ativos
+        <?php endif; ?>
+    </h2>
 
     <?php if ((string) $success === '1'): ?>
         <div class="alert success">Ativo cadastrado com sucesso.</div>
@@ -27,10 +35,11 @@
         <div class="alert error">Nao foi possivel concluir a transferencia.</div>
     <?php endif; ?>
 
-    <form method="post" action="index.php?r=<?= $editingAsset ? 'ti.assets.update' : 'ti.assets.store' ?>" class="form-grid three">
-        <?php if ($editingAsset): ?>
-            <input type="hidden" name="id" value="<?= (int) $editingAsset['id'] ?>">
-        <?php endif; ?>
+    <?php if ($canStore || $editingAsset): ?>
+        <form method="post" action="index.php?r=<?= $editingAsset ? 'ti.assets.update' : 'ti.assets.store' ?>" class="form-grid three">
+            <?php if ($editingAsset): ?>
+                <input type="hidden" name="id" value="<?= (int) $editingAsset['id'] ?>">
+            <?php endif; ?>
 
         <div>
             <label>Categoria de equipamento</label>
@@ -101,6 +110,15 @@
         </div>
 
         <div>
+            <label>Propriedade</label>
+            <?php $ownershipValue = (string) ($editingAsset['ownership_type'] ?? 'proprio'); ?>
+            <select name="ownership_type" required>
+                <option value="proprio" <?= $ownershipValue === 'proprio' ? 'selected' : '' ?>>Equipamento proprio</option>
+                <option value="terceirizado" <?= $ownershipValue === 'terceirizado' ? 'selected' : '' ?>>Terceirizado</option>
+            </select>
+        </div>
+
+        <div>
             <label>Responsavel</label>
             <select name="staff_id">
                 <option value="">Nao vinculado</option>
@@ -113,6 +131,36 @@
                     </option>
                 <?php endforeach; ?>
             </select>
+        </div>
+
+        <div>
+            <label>Departamento do ativo</label>
+            <select name="department_id">
+                <option value="">Nao vinculado a departamento</option>
+                <?php foreach ($departments as $department): ?>
+                    <option
+                        value="<?= (int) $department['id'] ?>"
+                        <?= $editingAsset && (int) ($editingAsset['department_id'] ?? 0) === (int) $department['id'] ? 'selected' : '' ?>
+                    >
+                        <?= htmlspecialchars((string) $department['name']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+
+        <div>
+            <label>Rede</label>
+            <?php $networkModeValue = (string) ($editingAsset['network_mode'] ?? ''); ?>
+            <select name="network_mode">
+                <option value="">Nao se aplica</option>
+                <option value="dhcp" <?= $networkModeValue === 'dhcp' ? 'selected' : '' ?>>DHCP</option>
+                <option value="estatico" <?= $networkModeValue === 'estatico' ? 'selected' : '' ?>>IP estatico</option>
+            </select>
+        </div>
+
+        <div>
+            <label>IP fixo (se estatico)</label>
+            <input type="text" name="ip_address" placeholder="Ex: 192.168.1.50" value="<?= htmlspecialchars((string) ($editingAsset['ip_address'] ?? '')) ?>">
         </div>
 
         <div>
@@ -157,13 +205,16 @@
             </div>
         <?php endif; ?>
 
-        <div class="actions-inline full">
-            <button type="submit"><?= $editingAsset ? 'Atualizar ativo' : 'Salvar ativo' ?></button>
-            <?php if ($editingAsset): ?>
-                <a class="btn btn-muted" href="index.php?r=ti.assets">Cancelar edicao</a>
-            <?php endif; ?>
-        </div>
-    </form>
+            <div class="actions-inline full">
+                <button type="submit"><?= $editingAsset ? 'Atualizar ativo' : 'Salvar ativo' ?></button>
+                <?php if ($editingAsset): ?>
+                    <a class="btn btn-muted" href="index.php?r=ti.assets">Cancelar edicao</a>
+                <?php endif; ?>
+            </div>
+        </form>
+    <?php else: ?>
+        <p class="muted">Seu perfil esta em modo consulta. Cadastros e alteracoes ficam com gestor/administrador.</p>
+    <?php endif; ?>
 </section>
 
 <?php if ($editingAsset): ?>
@@ -280,7 +331,24 @@
         <form method="get" action="index.php" class="search-form">
             <input type="hidden" name="r" value="ti.assets">
             <input type="text" name="q" value="<?= htmlspecialchars($search) ?>" placeholder="Buscar por TAG, serial, categoria, status, contrato...">
+            <select name="department_id">
+                <option value="">Todos departamentos</option>
+                <?php foreach ($departments as $department): ?>
+                    <option value="<?= (int) $department['id'] ?>" <?= (int) ($selectedDepartmentId ?? 0) === (int) $department['id'] ? 'selected' : '' ?>>
+                        <?= htmlspecialchars((string) $department['name']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <select name="responsible_id">
+                <option value="">Todos responsaveis</option>
+                <?php foreach ($staff as $person): ?>
+                    <option value="<?= (int) $person['id'] ?>" <?= (int) ($selectedResponsibleId ?? 0) === (int) $person['id'] ? 'selected' : '' ?>>
+                        <?= htmlspecialchars((string) $person['name']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
             <button type="submit">Buscar</button>
+            <a class="btn btn-muted" href="index.php?r=ti.assets">Limpar</a>
         </form>
     </div>
 
@@ -292,7 +360,10 @@
                     <th>TAG</th>
                     <th>Contrato</th>
                     <th>Status</th>
+                    <th>Propriedade</th>
                     <th>Estado</th>
+                    <th>Rede/IP</th>
+                    <th>Departamento</th>
                     <th>Responsavel</th>
                     <th>Garantia</th>
                     <th>Contrato fim</th>
@@ -306,24 +377,33 @@
                         <td><?= htmlspecialchars((string) $asset['tag']) ?></td>
                         <td><?= htmlspecialchars((string) ($asset['contract_type_name'] ?? '')) ?></td>
                         <td><?= htmlspecialchars((string) ($asset['status_name'] ?? $asset['status'])) ?></td>
+                        <td><?= htmlspecialchars((string) ($asset['ownership_type'] ?? '')) ?></td>
                         <td><?= htmlspecialchars((string) ($asset['condition_state'] ?? '')) ?></td>
+                        <td><?= htmlspecialchars((string) ($asset['network_mode'] ?? '')) ?><?= !empty($asset['ip_address']) ? ' / ' . htmlspecialchars((string) $asset['ip_address']) : '' ?></td>
+                        <td><?= htmlspecialchars((string) ($asset['asset_department_name'] ?? '')) ?></td>
                         <td><?= htmlspecialchars((string) ($asset['staff_name'] ?? '')) ?></td>
                         <td><?= htmlspecialchars((string) ($asset['warranty_until'] ?? '')) ?></td>
                         <td><?= htmlspecialchars((string) ($asset['contract_until'] ?? '')) ?></td>
                         <td>
                             <div class="actions-inline">
-                                <a class="btn btn-muted" href="index.php?r=ti.assets&edit=<?= (int) $asset['id'] ?>">Editar</a>
-                                <a class="btn btn-transfer" href="index.php?r=ti.assets&transfer=<?= (int) $asset['id'] ?>">Transferir</a>
-                                <form method="post" action="index.php?r=ti.assets.delete" onsubmit="return confirm('Deseja excluir este ativo?');">
-                                    <input type="hidden" name="id" value="<?= (int) $asset['id'] ?>">
-                                    <button class="btn-danger" type="submit">Excluir</button>
-                                </form>
+                                <?php if ($canUpdate): ?>
+                                    <a class="btn btn-muted" href="index.php?r=ti.assets&edit=<?= (int) $asset['id'] ?>">Editar</a>
+                                <?php endif; ?>
+                                <?php if ($canTransfer): ?>
+                                    <a class="btn btn-transfer" href="index.php?r=ti.assets&transfer=<?= (int) $asset['id'] ?>">Transferir</a>
+                                <?php endif; ?>
+                                <?php if ($canDelete): ?>
+                                    <form method="post" action="index.php?r=ti.assets.delete" onsubmit="return confirm('Deseja excluir este ativo?');">
+                                        <input type="hidden" name="id" value="<?= (int) $asset['id'] ?>">
+                                        <button class="btn-danger" type="submit">Excluir</button>
+                                    </form>
+                                <?php endif; ?>
                             </div>
                         </td>
                     </tr>
                 <?php endforeach; ?>
                 <?php if (empty($assets)): ?>
-                    <tr><td colspan="9">Nenhum ativo cadastrado.</td></tr>
+                    <tr><td colspan="12">Nenhum ativo cadastrado.</td></tr>
                 <?php endif; ?>
             </tbody>
         </table>

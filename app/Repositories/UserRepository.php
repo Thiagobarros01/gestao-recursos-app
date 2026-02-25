@@ -16,9 +16,10 @@ final class UserRepository
     public function findByUsername(string $username): ?array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT u.*, d.name AS department_name
+            'SELECT u.*, d.name AS department_name, s.name AS staff_name
              FROM users u
              LEFT JOIN departments d ON d.id = u.department_id
+             LEFT JOIN staff s ON s.id = u.staff_id
              WHERE u.username = :username
              LIMIT 1'
         );
@@ -35,9 +36,10 @@ final class UserRepository
     public function findById(int $id): ?array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT u.*, d.name AS department_name
+            'SELECT u.*, d.name AS department_name, s.name AS staff_name
              FROM users u
              LEFT JOIN departments d ON d.id = u.department_id
+             LEFT JOIN staff s ON s.id = u.staff_id
              WHERE u.id = :id
              LIMIT 1'
         );
@@ -54,9 +56,10 @@ final class UserRepository
     public function all(): array
     {
         $rows = $this->pdo->query(
-            'SELECT u.id, u.name, u.username, u.role, u.department_id, d.name AS department_name
+            'SELECT u.id, u.name, u.username, u.role, u.department_id, u.staff_id, d.name AS department_name, s.name AS staff_name
              FROM users u
              LEFT JOIN departments d ON d.id = u.department_id
+             LEFT JOIN staff s ON s.id = u.staff_id
              ORDER BY u.name ASC'
         )->fetchAll();
 
@@ -73,14 +76,15 @@ final class UserRepository
         string $passwordHash,
         string $role,
         ?int $departmentId,
+        ?int $staffId,
         array $allowedRoutes
     ): bool {
         try {
             $this->pdo->beginTransaction();
 
             $stmt = $this->pdo->prepare(
-                'INSERT INTO users (name, username, password_hash, role, department_id)
-                 VALUES (:name, :username, :password_hash, :role, :department_id)'
+                'INSERT INTO users (name, username, password_hash, role, department_id, staff_id)
+                 VALUES (:name, :username, :password_hash, :role, :department_id, :staff_id)'
             );
             $ok = $stmt->execute([
                 ':name' => $name,
@@ -88,6 +92,7 @@ final class UserRepository
                 ':password_hash' => $passwordHash,
                 ':role' => $role,
                 ':department_id' => $departmentId,
+                ':staff_id' => $staffId,
             ]);
             if (!$ok) {
                 $this->pdo->rollBack();
@@ -113,6 +118,7 @@ final class UserRepository
         ?string $passwordHash,
         string $role,
         ?int $departmentId,
+        ?int $staffId,
         array $allowedRoutes
     ): bool {
         try {
@@ -122,13 +128,15 @@ final class UserRepository
                     SET name = :name,
                         username = :username,
                         role = :role,
-                        department_id = :department_id';
+                        department_id = :department_id,
+                        staff_id = :staff_id';
             $params = [
                 ':id' => $id,
                 ':name' => $name,
                 ':username' => $username,
                 ':role' => $role,
                 ':department_id' => $departmentId,
+                ':staff_id' => $staffId,
             ];
 
             if ($passwordHash !== null) {

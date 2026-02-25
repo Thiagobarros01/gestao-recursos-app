@@ -32,6 +32,21 @@ final class AccessControl
         return $department !== '' ? $department : '__none__';
     }
 
+    public static function staffScope(?array $user): ?int
+    {
+        if (self::isFullAccess($user)) {
+            return null;
+        }
+
+        $role = self::normalizeRole($user['role'] ?? null);
+        if ($role !== 'operador') {
+            return null;
+        }
+
+        $staffId = (int) ($user['staff_id'] ?? 0);
+        return $staffId > 0 ? $staffId : -1;
+    }
+
     public static function canAccessRoute(string $route, ?array $user): bool
     {
         if ($route === 'logout' || $route === 'areas') {
@@ -83,6 +98,10 @@ final class AccessControl
                     'ti.home-requests.return',
                 ],
             ],
+            'ti_contracts' => [
+                'label' => 'Contratos e Termos',
+                'routes' => ['ti.contracts'],
+            ],
             'ti_staff' => [
                 'label' => 'Colaboradores TI',
                 'routes' => ['ti.staff', 'ti.staff.store', 'ti.staff.update', 'ti.staff.delete'],
@@ -132,23 +151,16 @@ final class AccessControl
     private static function baseRoutesForRole(string $role): array
     {
         if ($role === 'gestor') {
-            return ['ti.dashboard', 'ti.assets', 'ti.staff', 'ti.home-requests', 'ti.home-requests.store'];
+            return ['ti.dashboard', 'ti.assets', 'ti.contracts', 'ti.home-requests'];
         }
 
         if ($role === 'operador') {
             return [
                 'ti.dashboard',
                 'ti.assets',
-                'ti.assets.store',
-                'ti.assets.update',
-                'ti.assets.delete',
-                'ti.assets.transfer',
+                'ti.contracts',
                 'ti.home-requests',
                 'ti.home-requests.store',
-                'ti.staff',
-                'ti.staff.store',
-                'ti.staff.update',
-                'ti.staff.delete',
             ];
         }
 

@@ -12,8 +12,14 @@ final class StaffRepository
     {
     }
 
-    public function all(?string $department = null): array
+    public function all(?string $department = null, ?int $staffId = null): array
     {
+        if ($staffId !== null) {
+            $stmt = $this->pdo->prepare('SELECT * FROM staff WHERE id = :id ORDER BY name ASC');
+            $stmt->execute([':id' => $staffId]);
+            return $stmt->fetchAll();
+        }
+
         if ($department === null) {
             return $this->pdo->query('SELECT * FROM staff ORDER BY name ASC')->fetchAll();
         }
@@ -23,8 +29,12 @@ final class StaffRepository
         return $stmt->fetchAll();
     }
 
-    public function findById(int $id, ?string $department = null): ?array
+    public function findById(int $id, ?string $department = null, ?int $staffId = null): ?array
     {
+        if ($staffId !== null && $staffId > 0 && $id !== $staffId) {
+            return null;
+        }
+
         if ($department === null) {
             $stmt = $this->pdo->prepare('SELECT * FROM staff WHERE id = :id LIMIT 1');
             $stmt->execute([':id' => $id]);

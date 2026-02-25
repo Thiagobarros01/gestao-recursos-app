@@ -18,6 +18,7 @@ final class SchemaService
                 name TEXT NOT NULL,
                 role TEXT NOT NULL DEFAULT \'admin\',
                 department_id INTEGER,
+                staff_id INTEGER,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )'
         );
@@ -94,9 +95,14 @@ final class SchemaService
                 warranty_until TEXT,
                 contract_until TEXT,
                 returned_at TEXT,
+                ownership_type TEXT,
+                department_id INTEGER,
+                network_mode TEXT,
+                ip_address TEXT,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT,
                 FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE SET NULL,
+                FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL,
                 FOREIGN KEY (category_id) REFERENCES equipment_categories(id) ON DELETE SET NULL,
                 FOREIGN KEY (contract_type_id) REFERENCES contract_types(id) ON DELETE SET NULL,
                 FOREIGN KEY (status_id) REFERENCES asset_statuses(id) ON DELETE SET NULL
@@ -149,8 +155,13 @@ final class SchemaService
         self::ensureAssetColumn($pdo, 'contract_until', 'TEXT');
         self::ensureAssetColumn($pdo, 'returned_at', 'TEXT');
         self::ensureAssetColumn($pdo, 'condition_state', 'TEXT');
+        self::ensureAssetColumn($pdo, 'ownership_type', 'TEXT');
+        self::ensureAssetColumn($pdo, 'department_id', 'INTEGER');
+        self::ensureAssetColumn($pdo, 'network_mode', 'TEXT');
+        self::ensureAssetColumn($pdo, 'ip_address', 'TEXT');
         self::ensureUserColumn($pdo, 'role', 'TEXT NOT NULL DEFAULT \'admin\'');
         self::ensureUserColumn($pdo, 'department_id', 'INTEGER');
+        self::ensureUserColumn($pdo, 'staff_id', 'INTEGER');
 
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_assets_type ON assets(type)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_assets_status ON assets(status)');
@@ -160,11 +171,16 @@ final class SchemaService
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_assets_status_id ON assets(status_id)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_assets_warranty_until ON assets(warranty_until)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_assets_contract_until ON assets(contract_until)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_assets_ownership_type ON assets(ownership_type)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_assets_department_id ON assets(department_id)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_assets_network_mode ON assets(network_mode)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_assets_ip_address ON assets(ip_address)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_movements_asset_date ON asset_movements(asset_id, created_at DESC)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_home_req_asset ON home_equipment_requests(asset_id)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_home_req_status ON home_equipment_requests(status)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_home_req_requester ON home_equipment_requests(requester_staff_id)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_users_department ON users(department_id)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_users_staff ON users(staff_id)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_perm_user ON user_route_permissions(user_id)');
 
         self::seedDefaults($pdo);
@@ -172,8 +188,8 @@ final class SchemaService
         $count = (int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
         if ($count === 0) {
             $stmt = $pdo->prepare(
-                'INSERT INTO users (username, password_hash, name, role, department_id)
-                 VALUES (:username, :password_hash, :name, :role, :department_id)'
+                'INSERT INTO users (username, password_hash, name, role, department_id, staff_id)
+                 VALUES (:username, :password_hash, :name, :role, :department_id, :staff_id)'
             );
             $stmt->execute([
                 ':username' => $config['default_admin']['username'],
@@ -181,6 +197,7 @@ final class SchemaService
                 ':name' => $config['default_admin']['name'],
                 ':role' => 'admin',
                 ':department_id' => null,
+                ':staff_id' => null,
             ]);
         }
     }

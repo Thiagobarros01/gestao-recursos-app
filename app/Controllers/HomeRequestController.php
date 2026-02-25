@@ -26,29 +26,34 @@ final class HomeRequestController
 
     public function index(): void
     {
-        $departmentScope = AccessControl::departmentScope(Auth::user());
+        $staffScope = AccessControl::staffScope(Auth::user());
+        $departmentScope = $staffScope !== null && $staffScope > 0 ? null : AccessControl::departmentScope(Auth::user());
+        $scopedStaffId = $staffScope !== null && $staffScope > 0 ? $staffScope : null;
         View::render('home_requests/index', [
             'title' => 'Pedido para Levar Equipamento',
             'currentRoute' => 'ti.home-requests',
-            'requests' => $this->requests->list($departmentScope),
-            'assets' => $this->assets->list('', $departmentScope),
-            'staff' => $this->staff->all($departmentScope),
+            'requests' => $this->requests->list($departmentScope, $scopedStaffId),
+            'assets' => $this->assets->list('', $departmentScope, $scopedStaffId),
+            'staff' => $this->staff->all($departmentScope, $scopedStaffId),
             'statuses' => $this->lookups->statuses(),
             'success' => $_GET['ok'] ?? null,
             'error' => $_GET['error'] ?? null,
             'canApprove' => $this->canApprove(),
+            'requesterStaffScopeId' => $scopedStaffId,
         ]);
     }
 
     public function store(array $input): void
     {
-        $departmentScope = AccessControl::departmentScope(Auth::user());
+        $staffScope = AccessControl::staffScope(Auth::user());
+        $departmentScope = $staffScope !== null && $staffScope > 0 ? null : AccessControl::departmentScope(Auth::user());
+        $scopedStaffId = $staffScope !== null && $staffScope > 0 ? $staffScope : null;
         $assetId = (int) ($input['asset_id'] ?? 0);
-        $requesterStaffId = (int) ($input['requester_staff_id'] ?? 0);
+        $requesterStaffId = $scopedStaffId ?? (int) ($input['requester_staff_id'] ?? 0);
         $reason = trim((string) ($input['reason'] ?? ''));
 
-        $asset = $assetId > 0 ? $this->assets->findById($assetId, $departmentScope) : null;
-        $requester = $requesterStaffId > 0 ? $this->staff->findById($requesterStaffId, $departmentScope) : null;
+        $asset = $assetId > 0 ? $this->assets->findById($assetId, $departmentScope, $scopedStaffId) : null;
+        $requester = $requesterStaffId > 0 ? $this->staff->findById($requesterStaffId, $departmentScope, $scopedStaffId) : null;
         if ($asset === null || $requester === null || $reason === '') {
             View::redirect('ti.home-requests&error=1');
         }
@@ -88,8 +93,10 @@ final class HomeRequestController
             View::redirect('ti.home-requests&error=1');
         }
 
-        $departmentScope = AccessControl::departmentScope(Auth::user());
-        if ($this->requests->findById($id, $departmentScope) === null) {
+        $staffScope = AccessControl::staffScope(Auth::user());
+        $departmentScope = $staffScope !== null && $staffScope > 0 ? null : AccessControl::departmentScope(Auth::user());
+        $scopedStaffId = $staffScope !== null && $staffScope > 0 ? $staffScope : null;
+        if ($this->requests->findById($id, $departmentScope, $scopedStaffId) === null) {
             View::redirect('ti.home-requests&error=1');
         }
 
@@ -109,8 +116,10 @@ final class HomeRequestController
         }
 
         $id = (int) ($input['id'] ?? 0);
-        $departmentScope = AccessControl::departmentScope(Auth::user());
-        if ($id <= 0 || $this->requests->findById($id, $departmentScope) === null) {
+        $staffScope = AccessControl::staffScope(Auth::user());
+        $departmentScope = $staffScope !== null && $staffScope > 0 ? null : AccessControl::departmentScope(Auth::user());
+        $scopedStaffId = $staffScope !== null && $staffScope > 0 ? $staffScope : null;
+        if ($id <= 0 || $this->requests->findById($id, $departmentScope, $scopedStaffId) === null) {
             View::redirect('ti.home-requests&error=1');
         }
 
@@ -131,8 +140,10 @@ final class HomeRequestController
 
         $id = (int) ($input['id'] ?? 0);
         $conditionIn = trim((string) ($input['condition_in'] ?? ''));
-        $departmentScope = AccessControl::departmentScope(Auth::user());
-        if ($id <= 0 || $conditionIn === '' || $this->requests->findById($id, $departmentScope) === null) {
+        $staffScope = AccessControl::staffScope(Auth::user());
+        $departmentScope = $staffScope !== null && $staffScope > 0 ? null : AccessControl::departmentScope(Auth::user());
+        $scopedStaffId = $staffScope !== null && $staffScope > 0 ? $staffScope : null;
+        if ($id <= 0 || $conditionIn === '' || $this->requests->findById($id, $departmentScope, $scopedStaffId) === null) {
             View::redirect('ti.home-requests&error=1');
         }
 

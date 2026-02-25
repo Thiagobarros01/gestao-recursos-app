@@ -21,14 +21,16 @@ final class StaffController
 
     public function index(): void
     {
-        $departmentScope = AccessControl::departmentScope(Auth::user());
+        $staffScope = AccessControl::staffScope(Auth::user());
+        $departmentScope = $staffScope !== null && $staffScope > 0 ? null : AccessControl::departmentScope(Auth::user());
+        $scopedStaffId = $staffScope !== null && $staffScope > 0 ? $staffScope : null;
         $editId = (int) ($_GET['edit'] ?? 0);
-        $editingStaff = $editId > 0 ? $this->staff->findById($editId, $departmentScope) : null;
+        $editingStaff = $editId > 0 ? $this->staff->findById($editId, $departmentScope, $scopedStaffId) : null;
 
         View::render('staff/index', [
             'title' => 'Colaboradores TI',
             'currentRoute' => 'ti.staff',
-            'staff' => $this->staff->all($departmentScope),
+            'staff' => $this->staff->all($departmentScope, $scopedStaffId),
             'departments' => $this->lookups->departments(),
             'departmentScope' => $departmentScope,
             'success' => $_GET['ok'] ?? null,
@@ -43,6 +45,10 @@ final class StaffController
         $email = trim((string) ($input['email'] ?? ''));
         $department = trim((string) ($input['department'] ?? ''));
         $department = $this->effectiveDepartment($department);
+        $staffScope = AccessControl::staffScope(Auth::user());
+        if ($staffScope !== null && $staffScope > 0) {
+            View::redirect('ti.staff&error=1');
+        }
 
         if ($name === '' || $department === '') {
             View::redirect('ti.staff&error=1');
@@ -64,9 +70,11 @@ final class StaffController
         $email = trim((string) ($input['email'] ?? ''));
         $department = trim((string) ($input['department'] ?? ''));
         $department = $this->effectiveDepartment($department);
-        $departmentScope = AccessControl::departmentScope(Auth::user());
+        $staffScope = AccessControl::staffScope(Auth::user());
+        $departmentScope = $staffScope !== null && $staffScope > 0 ? null : AccessControl::departmentScope(Auth::user());
+        $scopedStaffId = $staffScope !== null && $staffScope > 0 ? $staffScope : null;
 
-        if ($id <= 0 || $name === '' || $department === '' || $this->staff->findById($id, $departmentScope) === null) {
+        if ($id <= 0 || $name === '' || $department === '' || $this->staff->findById($id, $departmentScope, $scopedStaffId) === null) {
             View::redirect('ti.staff&error=1');
         }
 
@@ -82,8 +90,10 @@ final class StaffController
     public function delete(array $input): void
     {
         $id = (int) ($input['id'] ?? 0);
-        $departmentScope = AccessControl::departmentScope(Auth::user());
-        if ($id <= 0 || $this->staff->findById($id, $departmentScope) === null) {
+        $staffScope = AccessControl::staffScope(Auth::user());
+        $departmentScope = $staffScope !== null && $staffScope > 0 ? null : AccessControl::departmentScope(Auth::user());
+        $scopedStaffId = $staffScope !== null && $staffScope > 0 ? $staffScope : null;
+        if ($id <= 0 || $this->staff->findById($id, $departmentScope, $scopedStaffId) === null) {
             View::redirect('ti.staff&error=1');
         }
 

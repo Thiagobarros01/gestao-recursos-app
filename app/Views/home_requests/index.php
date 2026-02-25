@@ -38,12 +38,27 @@
 
         <div>
             <label>Solicitante</label>
-            <select name="requester_staff_id" required>
-                <option value="">Selecione</option>
-                <?php foreach ($staff as $person): ?>
-                    <option value="<?= (int) $person['id'] ?>"><?= htmlspecialchars((string) $person['name']) ?></option>
-                <?php endforeach; ?>
-            </select>
+            <?php if ($requesterStaffScopeId !== null): ?>
+                <?php
+                    $scopedName = '';
+                    foreach ($staff as $person) {
+                        if ((int) $person['id'] === (int) $requesterStaffScopeId) {
+                            $scopedName = (string) $person['name'];
+                            break;
+                        }
+                    }
+                ?>
+                <input type="hidden" name="requester_staff_id" value="<?= (int) $requesterStaffScopeId ?>">
+                <input type="text" value="<?= htmlspecialchars($scopedName) ?>" readonly>
+                <p class="muted small">Solicitante vinculado automaticamente ao seu usuario.</p>
+            <?php else: ?>
+                <select name="requester_staff_id" required>
+                    <option value="">Selecione</option>
+                    <?php foreach ($staff as $person): ?>
+                        <option value="<?= (int) $person['id'] ?>"><?= htmlspecialchars((string) $person['name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            <?php endif; ?>
         </div>
 
         <div class="full">
@@ -121,6 +136,7 @@
                             <?php endif; ?>
                             <?php if ($canApprove && (string) $request['status'] === 'pending'): ?>
                                 <p class="muted small">Se nao preencher data de retorno, o fechamento sera manual.</p>
+                                <p class="muted small">Com data preenchida, apos o prazo o pedido vira entregue automaticamente.</p>
                             <?php endif; ?>
                             <?php if (!empty($request['document_text'])): ?>
                                 <details>

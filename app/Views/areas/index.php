@@ -7,7 +7,7 @@
     <article class="module-card module-ti">
         <p class="pill">Ativo</p>
         <h2>Gerenciamento da TI</h2>
-        <p>Controle de ativos, contratos, colaboradores e situacoes dos equipamentos.</p>
+        <p>Controle de ativos gerais, contratos/termos, colaboradores e situacoes dos equipamentos.</p>
         <a class="btn" href="index.php?r=ti.dashboard">Entrar na area</a>
     </article>
 
