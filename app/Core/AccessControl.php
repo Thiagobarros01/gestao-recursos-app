@@ -86,7 +86,15 @@ final class AccessControl
             ],
             'ti_assets' => [
                 'label' => 'Ativos TI',
-                'routes' => ['ti.assets', 'ti.assets.store', 'ti.assets.update', 'ti.assets.delete', 'ti.assets.transfer'],
+                'routes' => [
+                    'ti.assets',
+                    'ti.assets.store',
+                    'ti.assets.update',
+                    'ti.assets.delete',
+                    'ti.assets.transfer',
+                    'ti.assets.quick-department.store',
+                    'ti.assets.quick-staff.store',
+                ],
             ],
             'ti_home_requests' => [
                 'label' => 'Pedido Levar Casa',
@@ -100,7 +108,7 @@ final class AccessControl
             ],
             'ti_contracts' => [
                 'label' => 'Contratos e Termos',
-                'routes' => ['ti.contracts'],
+                'routes' => ['ti.contracts', 'ti.contracts.update'],
             ],
             'ti_staff' => [
                 'label' => 'Colaboradores TI',
@@ -151,7 +159,14 @@ final class AccessControl
     private static function baseRoutesForRole(string $role): array
     {
         if ($role === 'gestor') {
-            return ['ti.dashboard', 'ti.assets', 'ti.contracts', 'ti.home-requests'];
+            return [
+                'ti.dashboard',
+                'ti.assets',
+                'ti.assets.quick-department.store',
+                'ti.assets.quick-staff.store',
+                'ti.contracts',
+                'ti.home-requests',
+            ];
         }
 
         if ($role === 'operador') {

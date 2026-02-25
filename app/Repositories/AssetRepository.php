@@ -58,6 +58,9 @@ final class AssetRepository
 
         if ($search !== '') {
             $where[] = '(a.tag LIKE :q
+                        OR COALESCE(a.asset_name, \'\') LIKE :q
+                        OR COALESCE(a.brand_name, \'\') LIKE :q
+                        OR COALESCE(a.model_name, \'\') LIKE :q
                         OR a.serial_number LIKE :q
                         OR COALESCE(a.condition_state, \'\') LIKE :q
                         OR COALESCE(a.ownership_type, \'\') LIKE :q
@@ -168,6 +171,30 @@ final class AssetRepository
         return (int) $stmt->fetchColumn();
     }
 
+    public function countUnassigned(?string $department = null, ?int $staffId = null): int
+    {
+        $sql =
+            'SELECT COUNT(*)
+             FROM assets a
+             LEFT JOIN staff s ON s.id = a.staff_id
+             LEFT JOIN departments d ON d.id = a.department_id
+             WHERE a.staff_id IS NULL';
+        $params = [];
+
+        if ($department !== null) {
+            $sql .= ' AND (s.department = :department OR d.name = :department)';
+            $params[':department'] = $department;
+        }
+        if ($staffId !== null) {
+            $sql .= ' AND a.staff_id = :staff_id';
+            $params[':staff_id'] = $staffId;
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        return (int) $stmt->fetchColumn();
+    }
+
     public function create(array $data): bool
     {
         return $this->createAndGetId($data) > 0;
@@ -180,6 +207,9 @@ final class AssetRepository
                 type,
                 tag,
                 serial_number,
+                asset_name,
+                brand_name,
+                model_name,
                 status,
                 condition_state,
                 notes,
@@ -202,6 +232,9 @@ final class AssetRepository
                 :type,
                 :tag,
                 :serial_number,
+                :asset_name,
+                :brand_name,
+                :model_name,
                 :status,
                 :condition_state,
                 :notes,
@@ -227,13 +260,16 @@ final class AssetRepository
             ':type' => $data['category_name'],
             ':tag' => $data['tag'],
             ':serial_number' => $data['serial_number'] ?: null,
+            ':asset_name' => $data['asset_name'] ?: null,
+            ':brand_name' => $data['brand_name'] ?: null,
+            ':model_name' => $data['model_name'] ?: null,
             ':status' => $data['status_name'],
             ':condition_state' => $data['condition_state'] ?: null,
             ':notes' => $data['observation'] ?: null,
             ':document_path' => $data['document_path'] ?: null,
             ':staff_id' => $data['staff_id'] !== '' ? (int) $data['staff_id'] : null,
             ':category_id' => (int) $data['category_id'],
-            ':contract_type_id' => (int) $data['contract_type_id'],
+            ':contract_type_id' => $data['contract_type_id'] !== '' ? (int) $data['contract_type_id'] : null,
             ':status_id' => (int) $data['status_id'],
             ':observation' => $data['observation'] ?: null,
             ':purchase_date' => $data['purchase_date'] ?: null,
@@ -256,6 +292,9 @@ final class AssetRepository
              SET type = :type,
                  tag = :tag,
                  serial_number = :serial_number,
+                 asset_name = :asset_name,
+                 brand_name = :brand_name,
+                 model_name = :model_name,
                  status = :status,
                  condition_state = :condition_state,
                  notes = :notes,
@@ -282,13 +321,16 @@ final class AssetRepository
             ':type' => $data['category_name'],
             ':tag' => $data['tag'],
             ':serial_number' => $data['serial_number'] ?: null,
+            ':asset_name' => $data['asset_name'] ?: null,
+            ':brand_name' => $data['brand_name'] ?: null,
+            ':model_name' => $data['model_name'] ?: null,
             ':status' => $data['status_name'],
             ':condition_state' => $data['condition_state'] ?: null,
             ':notes' => $data['observation'] ?: null,
             ':document_path' => $data['document_path'] ?: null,
             ':staff_id' => $data['staff_id'] !== '' ? (int) $data['staff_id'] : null,
             ':category_id' => (int) $data['category_id'],
-            ':contract_type_id' => (int) $data['contract_type_id'],
+            ':contract_type_id' => $data['contract_type_id'] !== '' ? (int) $data['contract_type_id'] : null,
             ':status_id' => (int) $data['status_id'],
             ':observation' => $data['observation'] ?: null,
             ':purchase_date' => $data['purchase_date'] ?: null,
@@ -299,6 +341,29 @@ final class AssetRepository
             ':department_id' => $data['department_id'] !== '' ? (int) $data['department_id'] : null,
             ':network_mode' => $data['network_mode'] ?: null,
             ':ip_address' => $data['ip_address'] ?: null,
+        ]);
+    }
+
+    public function updateContractData(int $id, array $data): bool
+    {
+        $stmt = $this->pdo->prepare(
+            'UPDATE assets
+             SET contract_type_id = :contract_type_id,
+                 purchase_date = :purchase_date,
+                 warranty_until = :warranty_until,
+                 contract_until = :contract_until,
+                 document_path = :document_path,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = :id'
+        );
+
+        return $stmt->execute([
+            ':id' => $id,
+            ':contract_type_id' => $data['contract_type_id'] !== '' ? (int) $data['contract_type_id'] : null,
+            ':purchase_date' => $data['purchase_date'] !== '' ? $data['purchase_date'] : null,
+            ':warranty_until' => $data['warranty_until'] !== '' ? $data['warranty_until'] : null,
+            ':contract_until' => $data['contract_until'] !== '' ? $data['contract_until'] : null,
+            ':document_path' => trim((string) ($data['document_path'] ?? '')) !== '' ? trim((string) $data['document_path']) : null,
         ]);
     }
 

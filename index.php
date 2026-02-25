@@ -52,7 +52,7 @@ $areaController = new AreaController();
 $dashboardController = new DashboardController($assetRepo, $staffRepo, $lookupRepo, $homeRequestRepo);
 $staffController = new StaffController($staffRepo, $lookupRepo);
 $assetController = new AssetController($assetRepo, $staffRepo, $lookupRepo);
-$contractController = new ContractController($assetRepo, $homeRequestRepo);
+$contractController = new ContractController($assetRepo, $homeRequestRepo, $lookupRepo);
 $tiSettingsController = new TISettingsController($lookupRepo, $userRepo, $staffRepo);
 $homeRequestController = new HomeRequestController($homeRequestRepo, $assetRepo, $staffRepo, $lookupRepo);
 
@@ -99,6 +99,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         case 'ti.assets.transfer':
             $assetController->transfer($_POST);
             break;
+        case 'ti.assets.quick-department.store':
+            $assetController->quickStoreDepartment($_POST);
+            break;
+        case 'ti.assets.quick-staff.store':
+            $assetController->quickStoreStaff($_POST);
+            break;
         case 'ti.home-requests.store':
             $homeRequestController->store($_POST);
             break;
@@ -110,6 +116,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             break;
         case 'ti.home-requests.return':
             $homeRequestController->markReturned($_POST);
+            break;
+        case 'ti.contracts.update':
+            $contractController->update($_POST);
             break;
         case 'ti.settings.categories.store':
             $tiSettingsController->storeCategory($_POST);

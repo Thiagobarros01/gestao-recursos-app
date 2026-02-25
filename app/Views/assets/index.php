@@ -1,6 +1,6 @@
 <section class="page-head">
     <h1>Ativos gerais de TI</h1>
-    <p>Inventario central de equipamentos, propriedade, rede, departamento e responsavel.</p>
+    <p>Cadastro objetivo de inventario. Contratos e termos ficam em aba separada.</p>
 </section>
 
 <section class="card">
@@ -22,6 +22,10 @@
         <div class="alert success">Ativo removido com sucesso.</div>
     <?php elseif ((string) $success === '4'): ?>
         <div class="alert success">Transferencia registrada com sucesso.</div>
+    <?php elseif ((string) $success === '5'): ?>
+        <div class="alert success">Departamento cadastrado rapidamente.</div>
+    <?php elseif ((string) $success === '6'): ?>
+        <div class="alert success">Responsavel cadastrado rapidamente.</div>
     <?php endif; ?>
     <?php if ((string) $error === '1'): ?>
         <div class="alert error">Preencha os campos obrigatorios.</div>
@@ -33,6 +37,10 @@
         <div class="alert error">Dados invalidos para transferencia.</div>
     <?php elseif ((string) $error === '5'): ?>
         <div class="alert error">Nao foi possivel concluir a transferencia.</div>
+    <?php elseif ((string) $error === '6'): ?>
+        <div class="alert error">Preencha os dados do cadastro rapido.</div>
+    <?php elseif ((string) $error === '7'): ?>
+        <div class="alert error">Nao foi possivel salvar no cadastro rapido.</div>
     <?php endif; ?>
 
     <?php if ($canStore || $editingAsset): ?>
@@ -57,21 +65,6 @@
         </div>
 
         <div>
-            <label>Tipo de contrato</label>
-            <select name="contract_type_id" required>
-                <option value="">Selecione</option>
-                <?php foreach ($contractTypes as $contractType): ?>
-                    <option
-                        value="<?= (int) $contractType['id'] ?>"
-                        <?= $editingAsset && (int) $editingAsset['contract_type_id'] === (int) $contractType['id'] ? 'selected' : '' ?>
-                    >
-                        <?= htmlspecialchars($contractType['name']) ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-
-        <div>
             <label>Status</label>
             <select name="status_id" required>
                 <option value="">Selecione</option>
@@ -87,21 +80,23 @@
         </div>
 
         <div>
-            <label>Estado do equipamento</label>
-            <select name="condition_state">
-                <?php $conditionValue = (string) ($editingAsset['condition_state'] ?? ''); ?>
-                <option value="">Nao informado</option>
-                <option value="Novo" <?= $conditionValue === 'Novo' ? 'selected' : '' ?>>Novo</option>
-                <option value="Bom" <?= $conditionValue === 'Bom' ? 'selected' : '' ?>>Bom</option>
-                <option value="Regular" <?= $conditionValue === 'Regular' ? 'selected' : '' ?>>Regular</option>
-                <option value="Avariado" <?= $conditionValue === 'Avariado' ? 'selected' : '' ?>>Avariado</option>
-                <option value="Em manutencao" <?= $conditionValue === 'Em manutencao' ? 'selected' : '' ?>>Em manutencao</option>
-            </select>
+            <label>TAG / Patrimonio</label>
+            <input type="text" name="tag" placeholder="Ex: NTB-2026-001" value="<?= htmlspecialchars((string) ($editingAsset['tag'] ?? '')) ?>" required>
         </div>
 
         <div>
-            <label>TAG / Patrimonio</label>
-            <input type="text" name="tag" placeholder="Ex: NTB-2026-001" value="<?= htmlspecialchars((string) ($editingAsset['tag'] ?? '')) ?>" required>
+            <label>Nome do equipamento</label>
+            <input type="text" name="asset_name" placeholder="Ex: Notebook corporativo" value="<?= htmlspecialchars((string) ($editingAsset['asset_name'] ?? '')) ?>" required>
+        </div>
+
+        <div>
+            <label>Marca</label>
+            <input type="text" name="brand_name" placeholder="Ex: Dell" value="<?= htmlspecialchars((string) ($editingAsset['brand_name'] ?? '')) ?>">
+        </div>
+
+        <div>
+            <label>Modelo</label>
+            <input type="text" name="model_name" placeholder="Ex: Latitude 5440" value="<?= htmlspecialchars((string) ($editingAsset['model_name'] ?? '')) ?>">
         </div>
 
         <div>
@@ -119,7 +114,12 @@
         </div>
 
         <div>
-            <label>Responsavel</label>
+            <div class="field-head">
+                <label>Responsavel</label>
+                <?php if ($canQuickStaff): ?>
+                    <button type="button" class="quick-fab" data-toggle-target="quickStaffBox" title="Cadastro rapido de responsavel">+</button>
+                <?php endif; ?>
+            </div>
             <select name="staff_id">
                 <option value="">Nao vinculado</option>
                 <?php foreach ($staff as $person): ?>
@@ -131,10 +131,37 @@
                     </option>
                 <?php endforeach; ?>
             </select>
+            <?php if ($canQuickStaff): ?>
+                <div id="quickStaffBox" class="quick-box hidden">
+                    <form method="post" action="index.php?r=ti.assets.quick-staff.store" class="form-grid two">
+                        <input type="text" name="name" placeholder="Nome do responsavel" required>
+                        <input type="email" name="email" placeholder="Email (opcional)">
+                        <?php if ($departmentScope !== null && $departmentScope !== '__none__'): ?>
+                            <input type="hidden" name="department_id" value="<?= (int) $scopeDepartmentId ?>">
+                            <input type="text" value="<?= htmlspecialchars((string) $departmentScope) ?>" readonly>
+                        <?php else: ?>
+                            <select name="department_id" required>
+                                <option value="">Departamento</option>
+                                <?php foreach ($departments as $department): ?>
+                                    <option value="<?= (int) $department['id'] ?>"><?= htmlspecialchars((string) $department['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        <?php endif; ?>
+                        <div class="actions-inline full">
+                            <button type="submit">Salvar rapido</button>
+                        </div>
+                    </form>
+                </div>
+            <?php endif; ?>
         </div>
 
         <div>
-            <label>Departamento do ativo</label>
+            <div class="field-head">
+                <label>Departamento do ativo</label>
+                <?php if ($canQuickDepartment): ?>
+                    <button type="button" class="quick-fab" data-toggle-target="quickDepartmentBox" title="Cadastro rapido de departamento">+</button>
+                <?php endif; ?>
+            </div>
             <select name="department_id">
                 <option value="">Nao vinculado a departamento</option>
                 <?php foreach ($departments as $department): ?>
@@ -146,6 +173,14 @@
                     </option>
                 <?php endforeach; ?>
             </select>
+            <?php if ($canQuickDepartment): ?>
+                <div id="quickDepartmentBox" class="quick-box hidden">
+                    <form method="post" action="index.php?r=ti.assets.quick-department.store" class="inline-form">
+                        <input type="text" name="name" placeholder="Nome do departamento" required>
+                        <button type="submit">Salvar rapido</button>
+                    </form>
+                </div>
+            <?php endif; ?>
         </div>
 
         <div>
@@ -163,40 +198,27 @@
             <input type="text" name="ip_address" placeholder="Ex: 192.168.1.50" value="<?= htmlspecialchars((string) ($editingAsset['ip_address'] ?? '')) ?>">
         </div>
 
-        <div>
-            <label>Data da compra</label>
-            <input type="date" name="purchase_date" value="<?= htmlspecialchars((string) ($editingAsset['purchase_date'] ?? '')) ?>">
-        </div>
-
-        <div>
-            <label>Garantia ate</label>
-            <input type="date" name="warranty_until" value="<?= htmlspecialchars((string) ($editingAsset['warranty_until'] ?? '')) ?>">
-        </div>
-
-        <div>
-            <label>Contrato ate</label>
-            <input type="date" name="contract_until" value="<?= htmlspecialchars((string) ($editingAsset['contract_until'] ?? '')) ?>">
-        </div>
-
-        <div>
-            <label>Data de devolucao</label>
-            <input type="date" name="returned_at" value="<?= htmlspecialchars((string) ($editingAsset['returned_at'] ?? '')) ?>">
-        </div>
-
-        <div class="full">
-            <label>Caminho do documento na nuvem</label>
-            <input
-                type="text"
-                name="document_path"
-                placeholder="Ex: https://drive... ou /pasta/documento.pdf"
-                value="<?= htmlspecialchars((string) ($editingAsset['document_path'] ?? '')) ?>"
-            >
-        </div>
-
-        <div class="full">
-            <label>Observacao</label>
-            <textarea name="observation" rows="3" placeholder="Anotacoes relevantes do ativo e contrato"><?= htmlspecialchars((string) ($editingAsset['observation'] ?? $editingAsset['notes'] ?? '')) ?></textarea>
-        </div>
+        <details class="full subtle-details">
+            <summary>Campos complementares</summary>
+            <div class="form-grid two details-grid">
+                <div>
+                    <label>Estado do equipamento</label>
+                    <select name="condition_state">
+                        <?php $conditionValue = (string) ($editingAsset['condition_state'] ?? ''); ?>
+                        <option value="">Nao informado</option>
+                        <option value="Novo" <?= $conditionValue === 'Novo' ? 'selected' : '' ?>>Novo</option>
+                        <option value="Bom" <?= $conditionValue === 'Bom' ? 'selected' : '' ?>>Bom</option>
+                        <option value="Regular" <?= $conditionValue === 'Regular' ? 'selected' : '' ?>>Regular</option>
+                        <option value="Avariado" <?= $conditionValue === 'Avariado' ? 'selected' : '' ?>>Avariado</option>
+                        <option value="Em manutencao" <?= $conditionValue === 'Em manutencao' ? 'selected' : '' ?>>Em manutencao</option>
+                    </select>
+                </div>
+                <div class="full">
+                    <label>Observacao</label>
+                    <textarea name="observation" rows="3" placeholder="Anotacoes internas"><?= htmlspecialchars((string) ($editingAsset['observation'] ?? $editingAsset['notes'] ?? '')) ?></textarea>
+                </div>
+            </div>
+        </details>
 
         <?php if ($editingAsset): ?>
             <div class="full">
@@ -330,7 +352,7 @@
         <h2>Ativos cadastrados</h2>
         <form method="get" action="index.php" class="search-form">
             <input type="hidden" name="r" value="ti.assets">
-            <input type="text" name="q" value="<?= htmlspecialchars($search) ?>" placeholder="Buscar por TAG, serial, categoria, status, contrato...">
+            <input type="text" name="q" value="<?= htmlspecialchars($search) ?>" placeholder="Buscar por TAG, nome, marca, modelo, serial...">
             <select name="department_id">
                 <option value="">Todos departamentos</option>
                 <?php foreach ($departments as $department): ?>
@@ -356,34 +378,38 @@
         <table>
             <thead>
                 <tr>
-                    <th>Categoria</th>
+                    <th>Equipamento</th>
                     <th>TAG</th>
-                    <th>Contrato</th>
                     <th>Status</th>
-                    <th>Propriedade</th>
-                    <th>Estado</th>
-                    <th>Rede/IP</th>
                     <th>Departamento</th>
                     <th>Responsavel</th>
-                    <th>Garantia</th>
-                    <th>Contrato fim</th>
+                    <th>Detalhes</th>
                     <th>Acoes</th>
                 </tr>
             </thead>
             <tbody>
                 <?php foreach ($assets as $asset): ?>
                     <tr>
-                        <td><?= htmlspecialchars((string) ($asset['category_name'] ?? $asset['type'])) ?></td>
+                        <td>
+                            <?= htmlspecialchars((string) ($asset['asset_name'] ?? '')) ?>
+                            <?php if (!empty($asset['brand_name']) || !empty($asset['model_name'])): ?>
+                                <br><span class="muted small"><?= htmlspecialchars(trim((string) (($asset['brand_name'] ?? '') . ' ' . ($asset['model_name'] ?? '')))) ?></span>
+                            <?php endif; ?>
+                            <br><span class="muted small"><?= htmlspecialchars((string) ($asset['category_name'] ?? $asset['type'])) ?></span>
+                        </td>
                         <td><?= htmlspecialchars((string) $asset['tag']) ?></td>
-                        <td><?= htmlspecialchars((string) ($asset['contract_type_name'] ?? '')) ?></td>
                         <td><?= htmlspecialchars((string) ($asset['status_name'] ?? $asset['status'])) ?></td>
-                        <td><?= htmlspecialchars((string) ($asset['ownership_type'] ?? '')) ?></td>
-                        <td><?= htmlspecialchars((string) ($asset['condition_state'] ?? '')) ?></td>
-                        <td><?= htmlspecialchars((string) ($asset['network_mode'] ?? '')) ?><?= !empty($asset['ip_address']) ? ' / ' . htmlspecialchars((string) $asset['ip_address']) : '' ?></td>
                         <td><?= htmlspecialchars((string) ($asset['asset_department_name'] ?? '')) ?></td>
                         <td><?= htmlspecialchars((string) ($asset['staff_name'] ?? '')) ?></td>
-                        <td><?= htmlspecialchars((string) ($asset['warranty_until'] ?? '')) ?></td>
-                        <td><?= htmlspecialchars((string) ($asset['contract_until'] ?? '')) ?></td>
+                        <td class="muted small">
+                            <?= htmlspecialchars((string) ($asset['ownership_type'] ?? '')) ?>
+                            <?php if (!empty($asset['condition_state'])): ?>
+                                <br>Estado: <?= htmlspecialchars((string) $asset['condition_state']) ?>
+                            <?php endif; ?>
+                            <?php if (!empty($asset['network_mode']) || !empty($asset['ip_address'])): ?>
+                                <br>Rede: <?= htmlspecialchars((string) ($asset['network_mode'] ?? '')) ?><?= !empty($asset['ip_address']) ? ' / ' . htmlspecialchars((string) $asset['ip_address']) : '' ?>
+                            <?php endif; ?>
+                        </td>
                         <td>
                             <div class="actions-inline">
                                 <?php if ($canUpdate): ?>
@@ -403,7 +429,7 @@
                     </tr>
                 <?php endforeach; ?>
                 <?php if (empty($assets)): ?>
-                    <tr><td colspan="12">Nenhum ativo cadastrado.</td></tr>
+                    <tr><td colspan="7">Nenhum ativo cadastrado.</td></tr>
                 <?php endif; ?>
             </tbody>
         </table>

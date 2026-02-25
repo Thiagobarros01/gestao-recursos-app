@@ -37,6 +37,7 @@ final class DashboardController
             'devolvido' => $this->assets->countByStatus('Devolvido', $departmentScope, $staffScope !== null && $staffScope > 0 ? $staffScope : null),
             'perda' => $this->assets->countByStatus('Perda', $departmentScope, $staffScope !== null && $staffScope > 0 ? $staffScope : null),
             'roubo' => $this->assets->countByStatus('Roubo', $departmentScope, $staffScope !== null && $staffScope > 0 ? $staffScope : null),
+            'unassignedAssets' => $this->assets->countUnassigned($departmentScope, $staffScope !== null && $staffScope > 0 ? $staffScope : null),
             'homeRequestsPending' => $this->homeRequests->countByStatus('pending', $departmentScope, $staffScope !== null && $staffScope > 0 ? $staffScope : null),
             'homeRequestsApproved' => $this->homeRequests->countByStatus('approved', $departmentScope, $staffScope !== null && $staffScope > 0 ? $staffScope : null),
             'totalCategories' => count($this->lookups->categories()),

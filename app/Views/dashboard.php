@@ -9,6 +9,7 @@
     <article class="stat-card"><p>Categorias</p><h3><?= (int) $totalCategories ?></h3></article>
     <article class="stat-card"><p>Tipos de contrato</p><h3><?= (int) $totalContracts ?></h3></article>
     <article class="stat-card warn"><p>Em uso</p><h3><?= (int) $emUso ?></h3></article>
+    <article class="stat-card warn"><p>Sem responsavel</p><h3><?= (int) $unassignedAssets ?></h3></article>
     <article class="stat-card warn"><p>Pedidos pendentes</p><h3><?= (int) $homeRequestsPending ?></h3></article>
     <article class="stat-card warn"><p>Em uso externo</p><h3><?= (int) $homeRequestsApproved ?></h3></article>
     <article class="stat-card ok"><p>Devolvido</p><h3><?= (int) $devolvido ?></h3></article>

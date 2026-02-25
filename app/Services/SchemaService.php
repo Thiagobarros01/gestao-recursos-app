@@ -99,6 +99,9 @@ final class SchemaService
                 department_id INTEGER,
                 network_mode TEXT,
                 ip_address TEXT,
+                asset_name TEXT,
+                brand_name TEXT,
+                model_name TEXT,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT,
                 FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE SET NULL,
@@ -159,6 +162,9 @@ final class SchemaService
         self::ensureAssetColumn($pdo, 'department_id', 'INTEGER');
         self::ensureAssetColumn($pdo, 'network_mode', 'TEXT');
         self::ensureAssetColumn($pdo, 'ip_address', 'TEXT');
+        self::ensureAssetColumn($pdo, 'asset_name', 'TEXT');
+        self::ensureAssetColumn($pdo, 'brand_name', 'TEXT');
+        self::ensureAssetColumn($pdo, 'model_name', 'TEXT');
         self::ensureUserColumn($pdo, 'role', 'TEXT NOT NULL DEFAULT \'admin\'');
         self::ensureUserColumn($pdo, 'department_id', 'INTEGER');
         self::ensureUserColumn($pdo, 'staff_id', 'INTEGER');
@@ -175,6 +181,9 @@ final class SchemaService
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_assets_department_id ON assets(department_id)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_assets_network_mode ON assets(network_mode)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_assets_ip_address ON assets(ip_address)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_assets_asset_name ON assets(asset_name)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_assets_brand_name ON assets(brand_name)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_assets_model_name ON assets(model_name)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_movements_asset_date ON asset_movements(asset_id, created_at DESC)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_home_req_asset ON home_equipment_requests(asset_id)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_home_req_status ON home_equipment_requests(status)');

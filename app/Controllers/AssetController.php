@@ -26,6 +26,16 @@ final class AssetController
         $search = trim($_GET['q'] ?? '');
         $staffScope = AccessControl::staffScope(Auth::user());
         $departmentScope = $staffScope !== null && $staffScope > 0 ? null : AccessControl::departmentScope(Auth::user());
+        $departments = $this->lookups->departments();
+        $scopeDepartmentId = 0;
+        if ($departmentScope !== null && $departmentScope !== '__none__') {
+            foreach ($departments as $item) {
+                if ((string) ($item['name'] ?? '') === $departmentScope) {
+                    $scopeDepartmentId = (int) ($item['id'] ?? 0);
+                    break;
+                }
+            }
+        }
         $selectedDepartmentId = max(0, (int) ($_GET['department_id'] ?? 0));
         $selectedResponsibleId = max(0, (int) ($_GET['responsible_id'] ?? 0));
         if ($staffScope !== null && $staffScope > 0) {
@@ -43,7 +53,7 @@ final class AssetController
         $transferMovements = $transferringAsset ? $this->assets->movementsByAssetId((int) $transferringAsset['id'], 20) : [];
 
         View::render('assets/index', [
-            'title' => 'Ativos e Contratos TI',
+            'title' => 'Ativos Gerais TI',
             'currentRoute' => 'ti.assets',
             'assets' => $this->assets->list(
                 $search,
@@ -54,12 +64,13 @@ final class AssetController
             ),
             'staff' => $this->staff->all($departmentScope, $staffScope !== null && $staffScope > 0 ? $staffScope : null),
             'categories' => $this->lookups->categories(),
-            'contractTypes' => $this->lookups->contractTypes(),
             'statuses' => $this->lookups->statuses(),
-            'departments' => $this->lookups->departments(),
+            'departments' => $departments,
             'search' => $search,
             'selectedDepartmentId' => $selectedDepartmentId,
             'selectedResponsibleId' => $selectedResponsibleId,
+            'departmentScope' => $departmentScope,
+            'scopeDepartmentId' => $scopeDepartmentId,
             'error' => $_GET['error'] ?? null,
             'success' => $_GET['ok'] ?? null,
             'editingAsset' => $editingAsset,
@@ -70,12 +81,69 @@ final class AssetController
             'canUpdate' => $canUpdate,
             'canDelete' => $canDelete,
             'canTransfer' => $canTransfer,
+            'canQuickDepartment' => AccessControl::canAccessRoute('ti.assets.quick-department.store', Auth::user()),
+            'canQuickStaff' => AccessControl::canAccessRoute('ti.assets.quick-staff.store', Auth::user()),
         ]);
+    }
+
+    public function quickStoreDepartment(array $input): void
+    {
+        $name = trim((string) ($input['name'] ?? ''));
+        if ($name === '') {
+            View::redirect('ti.assets&error=6');
+        }
+
+        try {
+            $ok = $this->lookups->createDepartment($name);
+            if (!$ok) {
+                View::redirect('ti.assets&error=7');
+            }
+        } catch (Throwable) {
+            View::redirect('ti.assets&error=7');
+        }
+
+        View::redirect('ti.assets&ok=5');
+    }
+
+    public function quickStoreStaff(array $input): void
+    {
+        $name = trim((string) ($input['name'] ?? ''));
+        $email = trim((string) ($input['email'] ?? ''));
+        $departmentId = (int) ($input['department_id'] ?? 0);
+        $departmentScope = AccessControl::departmentScope(Auth::user());
+
+        if ($name === '') {
+            View::redirect('ti.assets&error=6');
+        }
+
+        $departmentName = '';
+        if ($departmentScope !== null && $departmentScope !== '__none__') {
+            $departmentName = $departmentScope;
+        } else {
+            if ($departmentId <= 0) {
+                View::redirect('ti.assets&error=6');
+            }
+            $departmentName = (string) ($this->lookups->departmentNameById($departmentId) ?? '');
+            if ($departmentName === '') {
+                View::redirect('ti.assets&error=6');
+            }
+        }
+
+        try {
+            $ok = $this->staff->create($name, $email !== '' ? $email : null, $departmentName);
+            if (!$ok) {
+                View::redirect('ti.assets&error=7');
+            }
+        } catch (Throwable) {
+            View::redirect('ti.assets&error=7');
+        }
+
+        View::redirect('ti.assets&ok=6');
     }
 
     public function store(array $input): void
     {
-        $payload = $this->preparePayload($input);
+        $payload = $this->preparePayload($input, null);
         if ($payload === null) {
             View::redirect('ti.assets&error=1');
         }
@@ -111,7 +179,7 @@ final class AssetController
             View::redirect('ti.assets&error=3');
         }
 
-        $payload = $this->preparePayload($input);
+        $payload = $this->preparePayload($input, $before);
         if ($payload === null) {
             View::redirect('ti.assets&error=1');
         }
@@ -197,9 +265,9 @@ final class AssetController
         View::redirect('ti.assets&ok=4');
     }
 
-    private function preparePayload(array $input): ?array
+    private function preparePayload(array $input, ?array $existing): ?array
     {
-        $required = ['category_id', 'contract_type_id', 'status_id', 'tag'];
+        $required = ['category_id', 'status_id', 'tag', 'asset_name'];
         foreach ($required as $field) {
             if (trim((string) ($input[$field] ?? '')) === '') {
                 return null;
@@ -207,7 +275,7 @@ final class AssetController
         }
 
         $categoryId = (int) trim((string) $input['category_id']);
-        $contractTypeId = (int) trim((string) $input['contract_type_id']);
+        $contractTypeId = (int) trim((string) ($input['contract_type_id'] ?? ($existing['contract_type_id'] ?? '0')));
         $statusId = (int) trim((string) $input['status_id']);
         $staffId = (int) ($input['staff_id'] ?? 0);
         $departmentId = (int) ($input['department_id'] ?? 0);
@@ -231,10 +299,15 @@ final class AssetController
             return null;
         }
 
-        $purchaseDate = $this->normalizeDate((string) ($input['purchase_date'] ?? ''));
-        $warrantyUntil = $this->normalizeDate((string) ($input['warranty_until'] ?? ''));
-        $contractUntil = $this->normalizeDate((string) ($input['contract_until'] ?? ''));
-        $returnedAt = $this->normalizeDate((string) ($input['returned_at'] ?? ''));
+        $purchaseDateSource = array_key_exists('purchase_date', $input) ? (string) $input['purchase_date'] : (string) ($existing['purchase_date'] ?? '');
+        $warrantyUntilSource = array_key_exists('warranty_until', $input) ? (string) $input['warranty_until'] : (string) ($existing['warranty_until'] ?? '');
+        $contractUntilSource = array_key_exists('contract_until', $input) ? (string) $input['contract_until'] : (string) ($existing['contract_until'] ?? '');
+        $returnedAtSource = array_key_exists('returned_at', $input) ? (string) $input['returned_at'] : (string) ($existing['returned_at'] ?? '');
+
+        $purchaseDate = $this->normalizeDate($purchaseDateSource);
+        $warrantyUntil = $this->normalizeDate($warrantyUntilSource);
+        $contractUntil = $this->normalizeDate($contractUntilSource);
+        $returnedAt = $this->normalizeDate($returnedAtSource);
 
         if ($purchaseDate === null || $warrantyUntil === null || $contractUntil === null || $returnedAt === null) {
             return null;
@@ -242,8 +315,11 @@ final class AssetController
 
         $categoryName = $this->lookups->categoryNameById($categoryId) ?? '';
         $statusName = $this->lookups->statusNameById($statusId) ?? '';
-        $contractTypeName = $this->lookups->contractTypeNameById($contractTypeId) ?? '';
-        if ($categoryName === '' || $statusName === '' || $contractTypeName === '') {
+        $contractTypeName = $contractTypeId > 0 ? ($this->lookups->contractTypeNameById($contractTypeId) ?? '') : (string) ($existing['contract_type_name'] ?? '');
+        if ($categoryName === '' || $statusName === '') {
+            return null;
+        }
+        if ($contractTypeId > 0 && $contractTypeName === '') {
             return null;
         }
 
@@ -272,16 +348,21 @@ final class AssetController
 
         return [
             'category_id' => (string) $categoryId,
-            'contract_type_id' => (string) $contractTypeId,
+            'contract_type_id' => $contractTypeId > 0 ? (string) $contractTypeId : '',
             'status_id' => (string) $statusId,
             'category_name' => $categoryName,
             'status_name' => $statusName,
             'staff_name' => $staffName,
+            'asset_name' => trim((string) ($input['asset_name'] ?? '')),
+            'brand_name' => trim((string) ($input['brand_name'] ?? '')),
+            'model_name' => trim((string) ($input['model_name'] ?? '')),
             'condition_state' => trim((string) ($input['condition_state'] ?? '')),
             'tag' => trim((string) $input['tag']),
             'serial_number' => trim((string) ($input['serial_number'] ?? '')),
             'observation' => trim((string) ($input['observation'] ?? '')),
-            'document_path' => trim((string) ($input['document_path'] ?? '')),
+            'document_path' => array_key_exists('document_path', $input)
+                ? trim((string) ($input['document_path'] ?? ''))
+                : (string) ($existing['document_path'] ?? ''),
             'staff_id' => $staffId > 0 ? (string) $staffId : '',
             'purchase_date' => $purchaseDate,
             'warranty_until' => $warrantyUntil,
@@ -319,6 +400,15 @@ final class AssetController
         $changes = [];
         if ((string) $before['tag'] !== $payload['tag']) {
             $changes[] = 'TAG';
+        }
+        if ((string) ($before['asset_name'] ?? '') !== $payload['asset_name']) {
+            $changes[] = 'Nome';
+        }
+        if ((string) ($before['brand_name'] ?? '') !== $payload['brand_name']) {
+            $changes[] = 'Marca';
+        }
+        if ((string) ($before['model_name'] ?? '') !== $payload['model_name']) {
+            $changes[] = 'Modelo';
         }
         if ((string) ($before['serial_number'] ?? '') !== $payload['serial_number']) {
             $changes[] = 'Serial';

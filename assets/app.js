@@ -26,4 +26,19 @@
         });
     }
 
+    var quickButtons = document.querySelectorAll('[data-toggle-target]');
+    quickButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+            var targetId = button.getAttribute('data-toggle-target');
+            if (!targetId) {
+                return;
+            }
+            var box = document.getElementById(targetId);
+            if (!box) {
+                return;
+            }
+            box.classList.toggle('hidden');
+        });
+    });
+
 })();
