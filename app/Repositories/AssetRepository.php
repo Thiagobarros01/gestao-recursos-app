@@ -43,6 +43,26 @@ final class AssetRepository
         return $stmt->fetchAll();
     }
 
+    public function findById(int $id): ?array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT a.*, s.name AS staff_name,
+                    c.name AS category_name,
+                    ct.name AS contract_type_name,
+                    st.name AS status_name
+             FROM assets a
+             LEFT JOIN staff s ON s.id = a.staff_id
+             LEFT JOIN equipment_categories c ON c.id = a.category_id
+             LEFT JOIN contract_types ct ON ct.id = a.contract_type_id
+             LEFT JOIN asset_statuses st ON st.id = a.status_id
+             WHERE a.id = :id
+             LIMIT 1'
+        );
+        $stmt->execute([':id' => $id]);
+        $row = $stmt->fetch();
+        return $row ?: null;
+    }
+
     public function countAll(): int
     {
         return (int) $this->pdo->query('SELECT COUNT(*) FROM assets')->fetchColumn();
@@ -105,5 +125,46 @@ final class AssetRepository
             ':status_id' => (int) $data['status_id'],
             ':observation' => $data['observation'] ?: null,
         ]);
+    }
+
+    public function update(int $id, array $data): bool
+    {
+        $stmt = $this->pdo->prepare(
+            'UPDATE assets
+             SET type = :type,
+                 tag = :tag,
+                 serial_number = :serial_number,
+                 status = :status,
+                 notes = :notes,
+                 document_path = :document_path,
+                 staff_id = :staff_id,
+                 category_id = :category_id,
+                 contract_type_id = :contract_type_id,
+                 status_id = :status_id,
+                 observation = :observation,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = :id'
+        );
+
+        return $stmt->execute([
+            ':id' => $id,
+            ':type' => $data['category_name'],
+            ':tag' => $data['tag'],
+            ':serial_number' => $data['serial_number'] ?: null,
+            ':status' => $data['status_name'],
+            ':notes' => $data['observation'] ?: null,
+            ':document_path' => $data['document_path'] ?: null,
+            ':staff_id' => $data['staff_id'] !== '' ? (int) $data['staff_id'] : null,
+            ':category_id' => (int) $data['category_id'],
+            ':contract_type_id' => (int) $data['contract_type_id'],
+            ':status_id' => (int) $data['status_id'],
+            ':observation' => $data['observation'] ?: null,
+        ]);
+    }
+
+    public function delete(int $id): bool
+    {
+        $stmt = $this->pdo->prepare('DELETE FROM assets WHERE id = :id');
+        return $stmt->execute([':id' => $id]);
     }
 }

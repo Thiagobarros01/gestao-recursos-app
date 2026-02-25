@@ -24,7 +24,18 @@ final class View
 
     public static function redirect(string $route): void
     {
-        header('Location: index.php?r=' . urlencode($route));
+        $route = trim($route);
+        if ($route === '') {
+            $route = 'areas';
+        }
+
+        [$routeName, $extra] = array_pad(explode('&', $route, 2), 2, '');
+        $location = 'index.php?r=' . urlencode($routeName);
+        if ($extra !== '') {
+            $location .= '&' . $extra;
+        }
+
+        header('Location: ' . $location);
         exit;
     }
 }

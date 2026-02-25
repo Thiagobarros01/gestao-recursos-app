@@ -67,17 +67,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         case 'ti.staff.store':
             $staffController->store($_POST);
             break;
+        case 'ti.staff.update':
+            $staffController->update($_POST);
+            break;
+        case 'ti.staff.delete':
+            $staffController->delete($_POST);
+            break;
         case 'ti.assets.store':
             $assetController->store($_POST);
+            break;
+        case 'ti.assets.update':
+            $assetController->update($_POST);
+            break;
+        case 'ti.assets.delete':
+            $assetController->delete($_POST);
             break;
         case 'ti.settings.categories.store':
             $tiSettingsController->storeCategory($_POST);
             break;
+        case 'ti.settings.categories.update':
+            $tiSettingsController->updateCategory($_POST);
+            break;
+        case 'ti.settings.categories.delete':
+            $tiSettingsController->deleteCategory($_POST);
+            break;
         case 'ti.settings.contract-types.store':
             $tiSettingsController->storeContractType($_POST);
             break;
+        case 'ti.settings.contract-types.update':
+            $tiSettingsController->updateContractType($_POST);
+            break;
+        case 'ti.settings.contract-types.delete':
+            $tiSettingsController->deleteContractType($_POST);
+            break;
         case 'ti.settings.statuses.store':
             $tiSettingsController->storeStatus($_POST);
+            break;
+        case 'ti.settings.statuses.update':
+            $tiSettingsController->updateStatus($_POST);
+            break;
+        case 'ti.settings.statuses.delete':
+            $tiSettingsController->deleteStatus($_POST);
             break;
         default:
             http_response_code(404);
