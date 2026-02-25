@@ -1,0 +1,126 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Controllers\AreaController;
+use App\Controllers\AssetController;
+use App\Controllers\AuthController;
+use App\Controllers\DashboardController;
+use App\Controllers\StaffController;
+use App\Controllers\TISettingsController;
+use App\Core\Auth;
+use App\Core\Database;
+use App\Core\View;
+use App\Repositories\AssetRepository;
+use App\Repositories\LookupRepository;
+use App\Repositories\StaffRepository;
+use App\Repositories\UserRepository;
+use App\Services\SchemaService;
+
+spl_autoload_register(static function (string $class): void {
+    $prefix = 'App\\';
+    if (!str_starts_with($class, $prefix)) {
+        return;
+    }
+
+    $relative = substr($class, strlen($prefix));
+    $path = __DIR__ . '/app/' . str_replace('\\', '/', $relative) . '.php';
+    if (file_exists($path)) {
+        require $path;
+    }
+});
+
+$config = require __DIR__ . '/config/app.php';
+Auth::init($config['session_name']);
+
+$pdo = Database::getConnection($config);
+SchemaService::migrate($pdo, $config);
+
+$userRepo = new UserRepository($pdo);
+$staffRepo = new StaffRepository($pdo);
+$lookupRepo = new LookupRepository($pdo);
+$assetRepo = new AssetRepository($pdo);
+
+$authController = new AuthController($userRepo);
+$areaController = new AreaController();
+$dashboardController = new DashboardController($assetRepo, $staffRepo, $lookupRepo);
+$staffController = new StaffController($staffRepo);
+$assetController = new AssetController($assetRepo, $staffRepo, $lookupRepo);
+$tiSettingsController = new TISettingsController($lookupRepo);
+
+$route = $_GET['r'] ?? 'areas';
+$isGuestRoute = in_array($route, ['login', 'login.submit'], true);
+
+if (!$isGuestRoute && !Auth::check()) {
+    View::redirect('login');
+}
+
+if ($isGuestRoute && Auth::check()) {
+    View::redirect('areas');
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    switch ($route) {
+        case 'login.submit':
+            $authController->login($_POST);
+            break;
+        case 'ti.staff.store':
+            $staffController->store($_POST);
+            break;
+        case 'ti.assets.store':
+            $assetController->store($_POST);
+            break;
+        case 'ti.settings.categories.store':
+            $tiSettingsController->storeCategory($_POST);
+            break;
+        case 'ti.settings.contract-types.store':
+            $tiSettingsController->storeContractType($_POST);
+            break;
+        case 'ti.settings.statuses.store':
+            $tiSettingsController->storeStatus($_POST);
+            break;
+        default:
+            http_response_code(404);
+            echo 'Rota POST nao encontrada';
+    }
+    exit;
+}
+
+switch ($route) {
+    case 'login':
+        $authController->loginForm();
+        break;
+    case 'logout':
+        $authController->logout();
+        break;
+    case 'areas':
+        $areaController->index();
+        break;
+    case 'ti.dashboard':
+        $dashboardController->index();
+        break;
+    case 'ti.staff':
+        $staffController->index();
+        break;
+    case 'ti.assets':
+        $assetController->index();
+        break;
+    case 'ti.settings':
+        $tiSettingsController->index();
+        break;
+
+    // Legacy routes
+    case 'dashboard':
+        View::redirect('ti.dashboard');
+        break;
+    case 'staff':
+        View::redirect('ti.staff');
+        break;
+    case 'assets':
+        View::redirect('ti.assets');
+        break;
+
+    default:
+        http_response_code(404);
+        echo 'Rota nao encontrada';
+}
