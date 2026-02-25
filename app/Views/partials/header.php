@@ -55,9 +55,13 @@ $hideMenu = $hideMenu ?? false;
                 <?php endif; ?>
             </div>
 
-            <div class="nav-section muted">
-                <p class="section-title">Proximas areas</p>
-                <span class="nav-link disabled">Gerenciamento comercial</span>
+            <div class="nav-section">
+                <p class="section-title">Gerenciamento Comercial</p>
+                <?php if (AccessControl::canAccessRoute('commercial.kanban', $user)): ?>
+                    <a class="nav-link <?= $currentRoute === 'commercial.kanban' ? 'active' : '' ?>" href="index.php?r=commercial.kanban">Kanban Comercial</a>
+                <?php else: ?>
+                    <span class="nav-link disabled">Sem acesso</span>
+                <?php endif; ?>
             </div>
 
             <?php if ($user): ?>

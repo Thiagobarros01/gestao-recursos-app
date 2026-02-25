@@ -134,6 +134,19 @@ final class AccessControl
                     'ti.settings.users.update',
                 ],
             ],
+            'commercial_kanban' => [
+                'label' => 'Kanban Comercial',
+                'routes' => [
+                    'commercial.kanban',
+                    'commercial.kanban.board.store',
+                    'commercial.kanban.board.update',
+                    'commercial.kanban.members.update',
+                    'commercial.kanban.task.store',
+                    'commercial.kanban.task.move',
+                    'commercial.kanban.task.update',
+                    'commercial.kanban.task.delete',
+                ],
+            ],
         ];
     }
 
@@ -166,6 +179,14 @@ final class AccessControl
                 'ti.assets.quick-staff.store',
                 'ti.contracts',
                 'ti.home-requests',
+                'commercial.kanban',
+                'commercial.kanban.board.store',
+                'commercial.kanban.board.update',
+                'commercial.kanban.members.update',
+                'commercial.kanban.task.store',
+                'commercial.kanban.task.move',
+                'commercial.kanban.task.update',
+                'commercial.kanban.task.delete',
             ];
         }
 
@@ -176,6 +197,9 @@ final class AccessControl
                 'ti.contracts',
                 'ti.home-requests',
                 'ti.home-requests.store',
+                'commercial.kanban',
+                'commercial.kanban.task.move',
+                'commercial.kanban.task.update',
             ];
         }
 

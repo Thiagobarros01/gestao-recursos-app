@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Controllers\AreaController;
 use App\Controllers\AssetController;
 use App\Controllers\AuthController;
+use App\Controllers\CommercialKanbanController;
 use App\Controllers\ContractController;
 use App\Controllers\DashboardController;
 use App\Controllers\HomeRequestController;
@@ -15,6 +16,7 @@ use App\Core\Auth;
 use App\Core\Database;
 use App\Core\View;
 use App\Repositories\AssetRepository;
+use App\Repositories\CommercialKanbanRepository;
 use App\Repositories\HomeRequestRepository;
 use App\Repositories\LookupRepository;
 use App\Repositories\StaffRepository;
@@ -45,6 +47,7 @@ $staffRepo = new StaffRepository($pdo);
 $lookupRepo = new LookupRepository($pdo);
 $assetRepo = new AssetRepository($pdo);
 $homeRequestRepo = new HomeRequestRepository($pdo);
+$commercialKanbanRepo = new CommercialKanbanRepository($pdo);
 $homeRequestRepo->autoMarkOverdueAsReturned();
 
 $authController = new AuthController($userRepo);
@@ -53,6 +56,7 @@ $dashboardController = new DashboardController($assetRepo, $staffRepo, $lookupRe
 $staffController = new StaffController($staffRepo, $lookupRepo);
 $assetController = new AssetController($assetRepo, $staffRepo, $lookupRepo);
 $contractController = new ContractController($assetRepo, $homeRequestRepo, $lookupRepo);
+$commercialKanbanController = new CommercialKanbanController($commercialKanbanRepo, $userRepo);
 $tiSettingsController = new TISettingsController($lookupRepo, $userRepo, $staffRepo);
 $homeRequestController = new HomeRequestController($homeRequestRepo, $assetRepo, $staffRepo, $lookupRepo);
 
@@ -104,6 +108,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             break;
         case 'ti.assets.quick-staff.store':
             $assetController->quickStoreStaff($_POST);
+            break;
+        case 'commercial.kanban.board.store':
+            $commercialKanbanController->createBoard($_POST);
+            break;
+        case 'commercial.kanban.board.update':
+            $commercialKanbanController->updateBoard($_POST);
+            break;
+        case 'commercial.kanban.members.update':
+            $commercialKanbanController->updateMembers($_POST);
+            break;
+        case 'commercial.kanban.task.store':
+            $commercialKanbanController->createTask($_POST);
+            break;
+        case 'commercial.kanban.task.update':
+            $commercialKanbanController->updateTask($_POST);
+            break;
+        case 'commercial.kanban.task.move':
+            $commercialKanbanController->moveTask($_POST);
+            break;
+        case 'commercial.kanban.task.delete':
+            $commercialKanbanController->deleteTask($_POST);
             break;
         case 'ti.home-requests.store':
             $homeRequestController->store($_POST);
@@ -196,6 +221,9 @@ switch ($route) {
         break;
     case 'ti.home-requests':
         $homeRequestController->index();
+        break;
+    case 'commercial.kanban':
+        $commercialKanbanController->index();
         break;
 
     // Legacy routes

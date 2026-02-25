@@ -41,4 +41,51 @@
         });
     });
 
+    var kanbanBoard = document.querySelector('.kanban-board');
+    if (kanbanBoard) {
+        var dragTaskId = null;
+        var columns = kanbanBoard.querySelectorAll('.kanban-column');
+        var cards = kanbanBoard.querySelectorAll('.kanban-card');
+        var moveForm = document.getElementById('kanbanMoveForm');
+        var taskIdInput = document.getElementById('kanbanMoveTaskId');
+        var statusInput = document.getElementById('kanbanMoveStatus');
+
+        cards.forEach(function (card) {
+            card.addEventListener('dragstart', function () {
+                dragTaskId = card.getAttribute('data-task-id');
+                card.classList.add('dragging');
+            });
+            card.addEventListener('dragend', function () {
+                card.classList.remove('dragging');
+            });
+        });
+
+        columns.forEach(function (column) {
+            column.addEventListener('dragover', function (event) {
+                event.preventDefault();
+                column.classList.add('drop-zone');
+            });
+            column.addEventListener('dragleave', function () {
+                column.classList.remove('drop-zone');
+            });
+            column.addEventListener('drop', function (event) {
+                event.preventDefault();
+                column.classList.remove('drop-zone');
+
+                if (!dragTaskId || !moveForm || !taskIdInput || !statusInput) {
+                    return;
+                }
+
+                var toStatus = column.getAttribute('data-status');
+                if (!toStatus) {
+                    return;
+                }
+
+                taskIdInput.value = dragTaskId;
+                statusInput.value = toStatus;
+                moveForm.submit();
+            });
+        });
+    }
+
 })();

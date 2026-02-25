@@ -149,6 +149,48 @@ final class SchemaService
             )'
         );
 
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS commercial_boards (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT,
+                owner_user_id INTEGER NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT,
+                FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE CASCADE
+            )'
+        );
+
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS commercial_board_members (
+                board_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (board_id, user_id),
+                FOREIGN KEY (board_id) REFERENCES commercial_boards(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )'
+        );
+
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS commercial_tasks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                board_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT,
+                status TEXT NOT NULL DEFAULT \'todo\',
+                priority TEXT NOT NULL DEFAULT \'media\',
+                assignee_user_id INTEGER,
+                due_date TEXT,
+                created_by_user_id INTEGER NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT,
+                FOREIGN KEY (board_id) REFERENCES commercial_boards(id) ON DELETE CASCADE,
+                FOREIGN KEY (assignee_user_id) REFERENCES users(id) ON DELETE SET NULL,
+                FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE CASCADE
+            )'
+        );
+
         self::ensureAssetColumn($pdo, 'category_id', 'INTEGER');
         self::ensureAssetColumn($pdo, 'contract_type_id', 'INTEGER');
         self::ensureAssetColumn($pdo, 'status_id', 'INTEGER');
@@ -188,6 +230,11 @@ final class SchemaService
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_home_req_asset ON home_equipment_requests(asset_id)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_home_req_status ON home_equipment_requests(status)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_home_req_requester ON home_equipment_requests(requester_staff_id)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_com_board_owner ON commercial_boards(owner_user_id)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_com_member_user ON commercial_board_members(user_id)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_com_task_board ON commercial_tasks(board_id)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_com_task_status ON commercial_tasks(status)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_com_task_assignee ON commercial_tasks(assignee_user_id)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_users_department ON users(department_id)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_users_staff ON users(staff_id)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_perm_user ON user_route_permissions(user_id)');

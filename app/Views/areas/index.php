@@ -12,9 +12,9 @@
     </article>
 
     <article class="module-card module-next">
-        <p class="pill">Planejado</p>
+        <p class="pill">Ativo</p>
         <h2>Gerenciamento comercial</h2>
-        <p>Espaco reservado para modulos comerciais no mesmo padrao de arquitetura.</p>
-        <button class="btn ghost" type="button" disabled>Em breve</button>
+        <p>Kanban comercial com quadros, tarefas e atribuicao por colaborador.</p>
+        <a class="btn" href="index.php?r=commercial.kanban">Entrar na area</a>
     </article>
 </section>
