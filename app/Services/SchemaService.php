@@ -218,14 +218,24 @@ final class SchemaService
             'CREATE TABLE IF NOT EXISTS crm_clients (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 owner_user_id INTEGER NOT NULL,
+                erp_customer_code TEXT,
+                seller_code TEXT,
                 client_name TEXT NOT NULL,
                 company_name TEXT,
                 phone TEXT,
                 whatsapp TEXT,
+                neighborhood TEXT,
+                birth_date TEXT,
                 email TEXT,
                 status TEXT NOT NULL DEFAULT \'ativo\',
                 notes TEXT,
                 last_purchase_date TEXT,
+                total_spent REAL NOT NULL DEFAULT 0,
+                purchase_count INTEGER NOT NULL DEFAULT 0,
+                ticket_avg REAL NOT NULL DEFAULT 0,
+                days_without_purchase INTEGER,
+                status_customer TEXT NOT NULL DEFAULT \'NOVO\',
+                crm_kanban_stage TEXT,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT,
                 FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -237,8 +247,12 @@ final class SchemaService
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 client_id INTEGER NOT NULL,
                 seller_user_id INTEGER NOT NULL,
+                order_number TEXT,
+                invoice_number TEXT,
                 sale_date TEXT NOT NULL,
                 amount REAL NOT NULL DEFAULT 0,
+                payment_method TEXT,
+                products_text TEXT,
                 notes TEXT,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (client_id) REFERENCES crm_clients(id) ON DELETE CASCADE,
@@ -250,9 +264,58 @@ final class SchemaService
             'CREATE TABLE IF NOT EXISTS crm_settings (
                 id INTEGER PRIMARY KEY CHECK (id = 1),
                 followup_after_days INTEGER NOT NULL DEFAULT 30,
+                vip_amount_threshold REAL NOT NULL DEFAULT 1000,
+                inactive_after_days INTEGER NOT NULL DEFAULT 60,
+                active_after_days INTEGER NOT NULL DEFAULT 30,
+                new_after_days INTEGER NOT NULL DEFAULT 30,
+                recurrence_window_days INTEGER NOT NULL DEFAULT 90,
+                recurrence_min_purchases INTEGER NOT NULL DEFAULT 3,
+                auto_status_enabled INTEGER NOT NULL DEFAULT 1,
                 updated_by_user_id INTEGER,
                 updated_at TEXT,
                 FOREIGN KEY (updated_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+            )'
+        );
+
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS crm_contact_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                client_id INTEGER NOT NULL,
+                contact_date TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                contact_type TEXT NOT NULL,
+                notes TEXT,
+                user_id INTEGER NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (client_id) REFERENCES crm_clients(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )'
+        );
+
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS crm_loyalty (
+                client_id INTEGER PRIMARY KEY,
+                points INTEGER NOT NULL DEFAULT 0,
+                updated_at TEXT,
+                FOREIGN KEY (client_id) REFERENCES crm_clients(id) ON DELETE CASCADE
+            )'
+        );
+
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS crm_tags (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )'
+        );
+
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS crm_client_tags (
+                client_id INTEGER NOT NULL,
+                tag_id INTEGER NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (client_id, tag_id),
+                FOREIGN KEY (client_id) REFERENCES crm_clients(id) ON DELETE CASCADE,
+                FOREIGN KEY (tag_id) REFERENCES crm_tags(id) ON DELETE CASCADE
             )'
         );
 
@@ -340,15 +403,36 @@ final class SchemaService
         self::ensureCommercialTaskColumn($pdo, 'deal_value', 'REAL');
         self::ensureCommercialTaskColumn($pdo, 'tag_name', 'TEXT');
         self::ensureCrmClientColumn($pdo, 'owner_user_id', 'INTEGER');
+        self::ensureCrmClientColumn($pdo, 'erp_customer_code', 'TEXT');
+        self::ensureCrmClientColumn($pdo, 'seller_code', 'TEXT');
         self::ensureCrmClientColumn($pdo, 'client_name', 'TEXT');
         self::ensureCrmClientColumn($pdo, 'company_name', 'TEXT');
         self::ensureCrmClientColumn($pdo, 'phone', 'TEXT');
         self::ensureCrmClientColumn($pdo, 'whatsapp', 'TEXT');
+        self::ensureCrmClientColumn($pdo, 'neighborhood', 'TEXT');
+        self::ensureCrmClientColumn($pdo, 'birth_date', 'TEXT');
         self::ensureCrmClientColumn($pdo, 'email', 'TEXT');
         self::ensureCrmClientColumn($pdo, 'status', 'TEXT NOT NULL DEFAULT \'ativo\'');
         self::ensureCrmClientColumn($pdo, 'notes', 'TEXT');
         self::ensureCrmClientColumn($pdo, 'last_purchase_date', 'TEXT');
+        self::ensureCrmClientColumn($pdo, 'total_spent', 'REAL NOT NULL DEFAULT 0');
+        self::ensureCrmClientColumn($pdo, 'purchase_count', 'INTEGER NOT NULL DEFAULT 0');
+        self::ensureCrmClientColumn($pdo, 'ticket_avg', 'REAL NOT NULL DEFAULT 0');
+        self::ensureCrmClientColumn($pdo, 'days_without_purchase', 'INTEGER');
+        self::ensureCrmClientColumn($pdo, 'status_customer', 'TEXT NOT NULL DEFAULT \'NOVO\'');
+        self::ensureCrmClientColumn($pdo, 'crm_kanban_stage', 'TEXT');
         self::ensureCrmClientColumn($pdo, 'updated_at', 'TEXT');
+        self::ensureCrmSalesColumn($pdo, 'order_number', 'TEXT');
+        self::ensureCrmSalesColumn($pdo, 'invoice_number', 'TEXT');
+        self::ensureCrmSalesColumn($pdo, 'payment_method', 'TEXT');
+        self::ensureCrmSalesColumn($pdo, 'products_text', 'TEXT');
+        self::ensureCrmSettingsColumn($pdo, 'vip_amount_threshold', 'REAL NOT NULL DEFAULT 1000');
+        self::ensureCrmSettingsColumn($pdo, 'inactive_after_days', 'INTEGER NOT NULL DEFAULT 60');
+        self::ensureCrmSettingsColumn($pdo, 'active_after_days', 'INTEGER NOT NULL DEFAULT 30');
+        self::ensureCrmSettingsColumn($pdo, 'new_after_days', 'INTEGER NOT NULL DEFAULT 30');
+        self::ensureCrmSettingsColumn($pdo, 'recurrence_window_days', 'INTEGER NOT NULL DEFAULT 90');
+        self::ensureCrmSettingsColumn($pdo, 'recurrence_min_purchases', 'INTEGER NOT NULL DEFAULT 3');
+        self::ensureCrmSettingsColumn($pdo, 'auto_status_enabled', 'INTEGER NOT NULL DEFAULT 1');
         self::ensureShortageColumn($pdo, 'product_code', 'TEXT');
         self::ensureShortageColumn($pdo, 'resolved_by_user_id', 'INTEGER');
         self::ensureShortageColumn($pdo, 'resolved_at', 'TEXT');
@@ -386,11 +470,23 @@ final class SchemaService
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_com_comment_task ON commercial_task_comments(task_id)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_com_comment_user ON commercial_task_comments(user_id)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_crm_client_owner ON crm_clients(owner_user_id)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_crm_client_erp_code ON crm_clients(erp_customer_code)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_crm_client_seller_code ON crm_clients(seller_code)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_crm_client_phone ON crm_clients(phone)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_crm_client_name ON crm_clients(client_name)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_crm_client_status ON crm_clients(status)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_crm_client_status_customer ON crm_clients(status_customer)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_crm_client_kanban_stage ON crm_clients(crm_kanban_stage)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_crm_client_last_purchase ON crm_clients(last_purchase_date)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_crm_client_neighborhood ON crm_clients(neighborhood)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_crm_sale_client ON crm_sales(client_id)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_crm_sale_seller ON crm_sales(seller_user_id)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_crm_sale_date ON crm_sales(sale_date)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_crm_sale_order_number ON crm_sales(order_number)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_crm_sale_invoice_number ON crm_sales(invoice_number)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_crm_contact_client ON crm_contact_history(client_id)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_crm_contact_date ON crm_contact_history(contact_date)');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_crm_client_tag_tag ON crm_client_tags(tag_id)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_purchase_product_name ON purchase_products(name)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_purchase_alert_status ON purchase_shortage_alerts(status)');
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_purchase_alert_user ON purchase_shortage_alerts(requested_by_user_id)');
@@ -423,8 +519,12 @@ final class SchemaService
         }
 
         $pdo->exec(
-            'INSERT OR IGNORE INTO crm_settings (id, followup_after_days, updated_at)
-             VALUES (1, 30, CURRENT_TIMESTAMP)'
+            'INSERT OR IGNORE INTO crm_settings (
+                id, followup_after_days, vip_amount_threshold, inactive_after_days, active_after_days,
+                new_after_days, recurrence_window_days, recurrence_min_purchases, updated_at
+             ) VALUES (
+                1, 30, 1000, 60, 30, 30, 90, 3, CURRENT_TIMESTAMP
+             )'
         );
     }
 
@@ -504,6 +604,30 @@ final class SchemaService
         }
 
         $pdo->exec(sprintf('ALTER TABLE crm_clients ADD COLUMN %s %s', $column, $definition));
+    }
+
+    private static function ensureCrmSalesColumn(PDO $pdo, string $column, string $definition): void
+    {
+        $stmt = $pdo->query('PRAGMA table_info(crm_sales)');
+        $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($columns as $item) {
+            if (($item['name'] ?? null) === $column) {
+                return;
+            }
+        }
+        $pdo->exec(sprintf('ALTER TABLE crm_sales ADD COLUMN %s %s', $column, $definition));
+    }
+
+    private static function ensureCrmSettingsColumn(PDO $pdo, string $column, string $definition): void
+    {
+        $stmt = $pdo->query('PRAGMA table_info(crm_settings)');
+        $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($columns as $item) {
+            if (($item['name'] ?? null) === $column) {
+                return;
+            }
+        }
+        $pdo->exec(sprintf('ALTER TABLE crm_settings ADD COLUMN %s %s', $column, $definition));
     }
 
     private static function seedDefaults(PDO $pdo): void

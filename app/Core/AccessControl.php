@@ -75,8 +75,14 @@ final class AccessControl
                 'commercial.kanban.comment.store',
                 'commercial.kanban.comment.delete',
                 'commercial.crm',
+                'commercial.crm.client',
+                'commercial.crm.kanban',
                 'commercial.crm.client.store',
                 'commercial.crm.sale.store',
+                'commercial.crm.contact.store',
+                'commercial.crm.kanban.stage.update',
+                'commercial.crm.import',
+                'commercial.crm.import.template',
             ], true);
         }
 
@@ -159,6 +165,13 @@ final class AccessControl
                     'settings.departments.delete',
                     'settings.users.store',
                     'settings.users.update',
+                    'settings.staff.store',
+                    'settings.staff.update',
+                    'settings.crm.clients.store',
+                    'settings.crm.clients.update',
+                    'settings.products.store',
+                    'settings.products.update',
+                    'settings.crm.update',
                 ],
             ],
             'commercial_kanban' => [
@@ -204,9 +217,14 @@ final class AccessControl
                 'label' => 'Comercial - CRM',
                 'routes' => [
                     'commercial.crm',
+                    'commercial.crm.client',
+                    'commercial.crm.kanban',
                     'commercial.crm.client.store',
                     'commercial.crm.sale.store',
-                    'commercial.crm.settings.update',
+                    'commercial.crm.contact.store',
+                    'commercial.crm.kanban.stage.update',
+                    'commercial.crm.import',
+                    'commercial.crm.import.template',
                 ],
             ],
             'ti_operator_requests' => [
@@ -252,8 +270,14 @@ final class AccessControl
                 $routes[] = 'commercial.seller.shortage.store';
                 $routes[] = 'commercial.seller.ti-request.store';
                 $routes[] = 'commercial.crm';
+                $routes[] = 'commercial.crm.client';
+                $routes[] = 'commercial.crm.kanban';
                 $routes[] = 'commercial.crm.client.store';
                 $routes[] = 'commercial.crm.sale.store';
+                $routes[] = 'commercial.crm.contact.store';
+                $routes[] = 'commercial.crm.kanban.stage.update';
+                $routes[] = 'commercial.crm.import';
+                $routes[] = 'commercial.crm.import.template';
             }
             return $routes;
         }

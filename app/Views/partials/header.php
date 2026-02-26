@@ -26,7 +26,7 @@ $canSettings = AccessControl::canAccessRoute('settings', $user);
 
 $openAreas = $currentRoute === 'areas';
 $openTi = in_array($currentRoute, ['ti.dashboard', 'ti.assets', 'ti.contracts', 'ti.home-requests', 'ti.staff', 'ti.operator-requests'], true);
-$openCommercial = in_array($currentRoute, ['commercial.kanban', 'commercial.seller', 'commercial.crm'], true);
+$openCommercial = in_array($currentRoute, ['commercial.kanban', 'commercial.seller', 'commercial.crm', 'commercial.crm.kanban'], true);
 $openPurchases = $currentRoute === 'purchases.manage';
 $openAdmin = $currentRoute === 'settings';
 ?>
@@ -101,6 +101,7 @@ $openAdmin = $currentRoute === 'settings';
                 <?php endif; ?>
                 <?php if ($canCommercialCrm): ?>
                     <a class="nav-link <?= $currentRoute === 'commercial.crm' ? 'active' : '' ?>" href="index.php?r=commercial.crm">CRM Comercial</a>
+                    <a class="nav-link <?= $currentRoute === 'commercial.crm.kanban' ? 'active' : '' ?>" href="index.php?r=commercial.crm.kanban">CRM Kanban</a>
                 <?php endif; ?>
                 <?php if ($canCommercialSeller): ?>
                     <a class="nav-link <?= $currentRoute === 'commercial.seller' ? 'active' : '' ?>" href="index.php?r=commercial.seller">Vendedor</a>

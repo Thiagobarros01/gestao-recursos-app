@@ -95,6 +95,49 @@
         });
     });
 
+    var liveSearchForm = document.querySelector('[data-live-search-form="1"]');
+    if (liveSearchForm) {
+        var liveInputs = liveSearchForm.querySelectorAll('[data-live-search-input]');
+        var liveTimer = null;
+        var lastPayload = '';
+
+        var submitLiveSearch = function () {
+            if (!liveSearchForm.requestSubmit) {
+                liveSearchForm.submit();
+                return;
+            }
+            liveSearchForm.requestSubmit();
+        };
+
+        var canSubmitLive = function () {
+            var phoneInput = liveSearchForm.querySelector('[data-live-search-input="phone"]');
+            var nameInput = liveSearchForm.querySelector('[data-live-search-input="name"]') || phoneInput;
+            var phoneDigits = phoneInput ? String(phoneInput.value || '').replace(/\D/g, '') : '';
+            var nameText = nameInput ? String(nameInput.value || '').trim() : '';
+            return phoneDigits.length >= 4 || nameText.length >= 3 || (phoneDigits.length === 0 && nameText.length === 0);
+        };
+
+        liveInputs.forEach(function (input) {
+            input.addEventListener('input', function () {
+                if (liveTimer) {
+                    clearTimeout(liveTimer);
+                }
+                liveTimer = setTimeout(function () {
+                    if (!canSubmitLive()) {
+                        return;
+                    }
+                    var formData = new FormData(liveSearchForm);
+                    var payload = new URLSearchParams(formData).toString();
+                    if (payload === lastPayload) {
+                        return;
+                    }
+                    lastPayload = payload;
+                    submitLiveSearch();
+                }, 450);
+            });
+        });
+    }
+
     var kanbanBoard = document.querySelector('.kanban-board');
     if (kanbanBoard) {
         var isReadOnlyBoard = kanbanBoard.getAttribute('data-readonly') === '1';

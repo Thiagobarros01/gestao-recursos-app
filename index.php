@@ -65,7 +65,7 @@ $assetController = new AssetController($assetRepo, $staffRepo, $lookupRepo);
 $contractController = new ContractController($assetRepo, $homeRequestRepo, $lookupRepo);
 $commercialKanbanController = new CommercialKanbanController($commercialKanbanRepo, $userRepo);
 $commercialCrmController = new CommercialCrmController($commercialCrmRepo, $userRepo);
-$tiSettingsController = new TISettingsController($lookupRepo, $userRepo, $staffRepo);
+$tiSettingsController = new TISettingsController($lookupRepo, $userRepo, $staffRepo, $commercialCrmRepo, $purchaseRepo);
 $homeRequestController = new HomeRequestController($homeRequestRepo, $assetRepo, $staffRepo, $lookupRepo);
 $purchasesController = new PurchasesController($purchaseRepo);
 $tiOperatorRequestController = new TIOperatorRequestController($purchaseRepo);
@@ -161,7 +161,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         case 'commercial.crm.sale.store':
             $commercialCrmController->storeSale($_POST);
             break;
-        case 'commercial.crm.settings.update':
+        case 'commercial.crm.contact.store':
+            $commercialCrmController->storeContact($_POST);
+            break;
+        case 'commercial.crm.kanban.stage.update':
+            $commercialCrmController->updateKanbanStage($_POST);
+            break;
+        case 'commercial.crm.import':
+            $commercialCrmController->importCsv($_POST, $_FILES);
+            break;
+        case 'settings.crm.update':
             $commercialCrmController->updateSettings($_POST);
             break;
         case 'ti.home-requests.store':
@@ -226,6 +235,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             break;
         case 'settings.users.update':
             $tiSettingsController->updateUser($_POST);
+            break;
+        case 'settings.staff.store':
+            $tiSettingsController->storeStaffMember($_POST);
+            break;
+        case 'settings.staff.update':
+            $tiSettingsController->updateStaffMember($_POST);
+            break;
+        case 'settings.crm.clients.store':
+            $tiSettingsController->storeCrmClient($_POST);
+            break;
+        case 'settings.crm.clients.update':
+            $tiSettingsController->updateCrmClient($_POST);
+            break;
+        case 'settings.products.store':
+            $tiSettingsController->storeProductMaster($_POST);
+            break;
+        case 'settings.products.update':
+            $tiSettingsController->updateProductMaster($_POST);
             break;
         case 'purchases.products.store':
             $purchasesController->storeProduct($_POST);
@@ -306,6 +333,15 @@ switch ($route) {
         break;
     case 'commercial.crm':
         $commercialCrmController->index();
+        break;
+    case 'commercial.crm.kanban':
+        $commercialCrmController->kanban();
+        break;
+    case 'commercial.crm.import.template':
+        $commercialCrmController->downloadImportTemplate();
+        break;
+    case 'commercial.crm.client':
+        $commercialCrmController->clientDetail();
         break;
     case 'purchases.manage':
         $purchasesController->manage();

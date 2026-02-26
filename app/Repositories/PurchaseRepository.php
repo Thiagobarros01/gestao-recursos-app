@@ -22,6 +22,22 @@ final class PurchaseRepository
         )->fetchAll();
     }
 
+    public function findProductById(int $id): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT * FROM purchase_products WHERE id = :id LIMIT 1');
+        $stmt->execute([':id' => $id]);
+        $row = $stmt->fetch();
+        return $row ?: null;
+    }
+
+    public function findProductByErpCode(string $erpCode): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT * FROM purchase_products WHERE sku = :sku LIMIT 1');
+        $stmt->execute([':sku' => $erpCode]);
+        $row = $stmt->fetch();
+        return $row ?: null;
+    }
+
     public function createProduct(string $name, string $sku, int $stockQty, int $minQty): bool
     {
         $stmt = $this->pdo->prepare(
@@ -31,6 +47,26 @@ final class PurchaseRepository
         return $stmt->execute([
             ':name' => $name,
             ':sku' => $sku !== '' ? $sku : null,
+            ':stock_qty' => max(0, $stockQty),
+            ':min_qty' => max(0, $minQty),
+        ]);
+    }
+
+    public function updateProductMaster(int $id, string $name, string $erpCode, int $stockQty, int $minQty): bool
+    {
+        $stmt = $this->pdo->prepare(
+            'UPDATE purchase_products
+             SET name = :name,
+                 sku = :sku,
+                 stock_qty = :stock_qty,
+                 min_qty = :min_qty,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = :id'
+        );
+        return $stmt->execute([
+            ':id' => $id,
+            ':name' => $name,
+            ':sku' => $erpCode,
             ':stock_qty' => max(0, $stockQty),
             ':min_qty' => max(0, $minQty),
         ]);
